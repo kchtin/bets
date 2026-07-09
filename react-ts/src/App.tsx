@@ -73,6 +73,13 @@ function App() {
     }
   };
 
+  const handleManualSplit = () => {
+    doSplit(bets, groups, minAmount, step);
+    copy(splitText).then((ok) => {
+      append(ok ? '拆单结果已复制' : '复制失败', ok ? 'success' : 'error');
+    });
+  };
+
   const handleCopyParsed = async () => {
     const ok = await copy(parsedText);
     append(ok ? '解析结果已复制' : '复制失败', ok ? 'success' : 'error');
@@ -106,19 +113,19 @@ function App() {
     title: string;
     action?: { label: string; onClick: () => void };
   }) => (
-    <div className="mb-4 flex items-center justify-between">
+    <div className="mb-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl accent-gradient accent-glow text-white shadow-sm">
-          <Icon className="h-4.5 w-4.5" strokeWidth={2.5} />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-gradient accent-glow text-white shadow-sm">
+          <Icon className="h-4 w-4" strokeWidth={2.5} />
         </div>
-        <h2 className="text-base font-semibold tracking-wide text-slate-800">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-slate-800">{title}</h2>
       </div>
       {action && (
         <button
           onClick={action.onClick}
-          className="press-scale focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-emerald-600"
+          className="press-scale focus-ring flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-emerald-600"
         >
-          <Copy className="h-3.5 w-3.5" />
+          <Copy className="h-3 w-3" />
           {action.label}
         </button>
       )}
@@ -126,38 +133,32 @@ function App() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden p-4 md:p-6 lg:p-8">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden p-4 md:p-5 lg:p-6">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -left-[15%] -top-[10%] h-[500px] w-[500px] rounded-full bg-emerald-400/10 blur-[120px]" />
         <div className="absolute -bottom-[10%] -right-[10%] h-[400px] w-[400px] rounded-full bg-emerald-300/10 blur-[100px]" />
       </div>
 
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl accent-gradient accent-glow press-scale focus-ring shadow-md">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gradient md:text-4xl">sixhe</h1>
-              <p className="text-sm text-slate-500">智能注单解析与拆单工具</p>
-            </div>
+      <div className="mx-auto w-full max-w-7xl">
+        <header className="mb-6 flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl accent-gradient accent-glow press-scale focus-ring shadow-md">
+            <Sparkles className="h-5 w-5 text-white" />
           </div>
-          <div className="hidden items-center gap-2 rounded-full glass px-4 py-1.5 text-xs text-slate-500 sm:flex">
-            <Activity className="h-3.5 w-3.5 text-emerald-600" />
-            <span>React + TypeScript</span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gradient md:text-3xl">sixhe</h1>
+            <p className="text-xs text-slate-500">智能注单解析与拆单工具</p>
           </div>
         </header>
 
-        <main className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-          <section className="space-y-5 lg:col-span-8">
-            <article className="ambient-light rounded-2xl glass-strong p-5 card-shadow md:p-6">
-              <div className="mb-4 flex items-center justify-between">
+        <main className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-12">
+          <section className="flex flex-col gap-5 lg:col-span-8">
+            <article className="ambient-light flex-[1.2] rounded-2xl glass-strong p-4 card-shadow md:p-5">
+              <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl accent-gradient accent-glow text-white shadow-sm">
-                    <ClipboardPaste className="h-4.5 w-4.5" strokeWidth={2.5} />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-gradient accent-glow text-white shadow-sm">
+                    <ClipboardPaste className="h-4 w-4" strokeWidth={2.5} />
                   </div>
-                  <h2 className="text-base font-semibold tracking-wide text-slate-800">输入注单</h2>
+                  <h2 className="text-sm font-semibold tracking-wide text-slate-800">输入注单</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -180,14 +181,14 @@ function App() {
                 id="bet-input"
                 aria-label="下注文案输入"
                 placeholder="粘贴或输入下注文案，例如：牛羊个200"
-                rows={4}
+                rows={3}
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
-                className="focus-ring w-full resize-none rounded-xl border border-slate-200 bg-white/80 p-4 font-mono text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                className="focus-ring h-[calc(100%-3rem)] min-h-[80px] w-full resize-none rounded-xl border border-slate-200 bg-white/80 p-3 font-mono text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
               />
             </article>
 
-            <article className="rounded-2xl glass-strong p-5 card-shadow md:p-6">
+            <article className="flex-[2] rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader
                 icon={Copy}
                 title="解析结果"
@@ -197,15 +198,11 @@ function App() {
                 readOnly
                 value={parsedText}
                 placeholder="解析后的注单会显示在这里"
-                rows={6}
-                onClick={handleCopyParsed}
-                title="点击复制"
-                aria-label="解析结果，点击复制"
-                className="focus-ring w-full cursor-pointer resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                className="focus-ring h-[calc(100%-2.5rem)] min-h-[100px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
             </article>
 
-            <article className="rounded-2xl glass-strong p-5 card-shadow md:p-6">
+            <article className="flex-[3] rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader
                 icon={Calculator}
                 title="拆单结果"
@@ -215,21 +212,17 @@ function App() {
                 readOnly
                 value={splitText}
                 placeholder="拆单结果会显示在这里"
-                rows={8}
-                onClick={handleCopySplit}
-                title="点击复制"
-                aria-label="拆单结果，点击复制"
-                className="focus-ring w-full cursor-pointer resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                className="focus-ring h-[calc(100%-2.5rem)] min-h-[160px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
             </article>
           </section>
 
-          <aside className="space-y-5 lg:col-span-4">
-            <article className="rounded-2xl glass-strong p-5 card-shadow md:p-6">
+          <aside className="flex flex-col gap-5 lg:col-span-4">
+            <article className="rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader icon={Calculator} title="设置" />
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label htmlFor="groups" className="text-sm font-medium text-slate-700">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="groups" className="text-xs font-medium text-slate-700">
                     组数
                   </label>
                   <input
@@ -238,12 +231,12 @@ function App() {
                     min={1}
                     value={groups}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGroups(parseInt(e.target.value) || 1)}
-                    className="focus-ring h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                    className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="minAmount" className="text-sm font-medium text-slate-700">
+                <div className="space-y-1.5">
+                  <label htmlFor="minAmount" className="text-xs font-medium text-slate-700">
                     最低金额
                   </label>
                   <input
@@ -252,17 +245,17 @@ function App() {
                     min={0}
                     value={minAmount}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMinAmount(parseInt(e.target.value) || 0)}
-                    className="focus-ring h-11 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                    className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">倍数步长</span>
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-slate-700">倍数步长</span>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleStepChange(5)}
                       aria-pressed={step === 5}
-                      className={`press-scale focus-ring min-h-[44px] rounded-xl py-2.5 text-sm font-semibold transition ${
+                      className={`press-scale focus-ring min-h-[40px] rounded-xl py-2 text-sm font-semibold transition ${
                         step === 5
                           ? 'accent-gradient accent-glow text-white shadow-md'
                           : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
@@ -273,7 +266,7 @@ function App() {
                     <button
                       onClick={() => handleStepChange(10)}
                       aria-pressed={step === 10}
-                      className={`press-scale focus-ring min-h-[44px] rounded-xl py-2.5 text-sm font-semibold transition ${
+                      className={`press-scale focus-ring min-h-[40px] rounded-xl py-2 text-sm font-semibold transition ${
                         step === 10
                           ? 'accent-gradient accent-glow text-white shadow-md'
                           : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
@@ -283,16 +276,24 @@ function App() {
                     </button>
                   </div>
                 </div>
+
+                <button
+                  onClick={handleManualSplit}
+                  className="press-scale focus-ring flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl accent-gradient py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-105"
+                >
+                  <Calculator className="h-4 w-4" />
+                  拆单
+                </button>
               </div>
             </article>
 
-            <article className="rounded-2xl glass-strong p-5 card-shadow md:p-6">
+            <article className="flex flex-1 flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader icon={Activity} title="运行日志" />
               <div
                 ref={containerRef}
                 role="log"
                 aria-live="polite"
-                className="h-56 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs"
+                className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs"
               >
                 {logs.length === 0 ? (
                   <span className="text-slate-400">暂无日志</span>
@@ -316,10 +317,6 @@ function App() {
             </article>
           </aside>
         </main>
-
-        <footer className="mt-10 text-center text-xs text-slate-400">
-          sixhe © 2026 · React + TypeScript + Tauri · UI/UX Pro Max
-        </footer>
       </div>
     </div>
   );
