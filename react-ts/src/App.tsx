@@ -3,15 +3,7 @@ import { parseBetText, parseStandardBets, formatParsedBets, type Bet } from './l
 import { splitBets } from './lib/splitter';
 import { useClipboard } from './hooks/useClipboard';
 import { useLog } from './hooks/useLog';
-
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ClipboardPaste, Copy, Calculator, Trash2 } from 'lucide-react';
+import { ClipboardPaste, Copy, Calculator, Trash2, Sparkles, Activity } from 'lucide-react';
 
 type Step = 5 | 10;
 
@@ -105,185 +97,221 @@ function App() {
     append('已清空', 'info');
   };
 
+  const SectionHeader = ({
+    icon: Icon,
+    title,
+    action,
+  }: {
+    icon: React.ElementType;
+    title: string;
+    action?: { label: string; onClick: () => void };
+  }) => (
+    <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl accent-gradient accent-glow text-slate-950">
+          <Icon className="h-4.5 w-4.5" strokeWidth={2.5} />
+        </div>
+        <h2 className="text-base font-semibold tracking-wide text-slate-100">{title}</h2>
+      </div>
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="press-scale focus-ring flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/5 hover:text-emerald-400"
+        >
+          <Copy className="h-3.5 w-3.5" />
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-6">
+    <div className="relative min-h-screen overflow-x-hidden p-4 md:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -left-[20%] -top-[10%] h-[500px] w-[500px] rounded-full bg-emerald-500/5 blur-[120px]" />
+        <div className="absolute -bottom-[10%] -right-[10%] h-[400px] w-[400px] rounded-full bg-emerald-600/5 blur-[100px]" />
+      </div>
+
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">sixhe</h1>
-            <p className="text-sm text-slate-500">注单解析与拆单工具</p>
+        <header className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl accent-gradient accent-glow press-scale focus-ring">
+              <Sparkles className="h-6 w-6 text-slate-950" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-gradient md:text-4xl">sixhe</h1>
+              <p className="text-sm text-slate-500">智能注单解析与拆单工具</p>
+            </div>
           </div>
-          <Badge variant="secondary">React + TS</Badge>
+          <div className="hidden items-center gap-2 rounded-full glass px-4 py-1.5 text-xs text-slate-400 sm:flex">
+            <Activity className="h-3.5 w-3.5 text-emerald-500" />
+            <span>React + TypeScript</span>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
+        <main className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <section className="space-y-5 lg:col-span-8">
+            <article className="ambient-light rounded-2xl glass-strong p-5 md:p-6">
+              <SectionHeader icon={ClipboardPaste} title="输入注单" />
+              <textarea
+                id="bet-input"
+                aria-label="下注文案输入"
+                placeholder="粘贴或输入下注文案，例如：牛羊个200"
+                rows={4}
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                className="focus-ring w-full resize-none rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/40 focus:outline-none"
+              />
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  onClick={handlePaste}
+                  className="press-scale focus-ring flex min-h-[44px] items-center gap-2 rounded-xl accent-gradient px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
+                >
                   <ClipboardPaste className="h-4 w-4" />
-                  输入注单
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Textarea
-                  placeholder="粘贴或输入下注文案，例如：牛羊个200"
-                  rows={4}
-                  value={input}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  className="font-mono text-sm"
-                />
-                <div className="flex gap-2">
-                  <Button onClick={handlePaste} size="sm">
-                    <ClipboardPaste className="mr-1 h-4 w-4" />
-                    粘贴
-                  </Button>
-                  <Button variant="outline" onClick={handleClear} size="sm">
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    清空
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  粘贴
+                </button>
+                <button
+                  onClick={handleClear}
+                  className="press-scale focus-ring flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-700/60 bg-slate-800/40 px-5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800/70 hover:text-slate-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  清空
+                </button>
+              </div>
+            </article>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Copy className="h-4 w-4" />
-                    解析结果
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={handleCopyParsed}>
-                    复制
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  readOnly
-                  value={parsedText}
-                  placeholder="解析后的注单会显示在这里"
-                  rows={6}
-                  className="font-mono text-sm cursor-pointer"
-                  onClick={handleCopyParsed}
-                  title="点击复制"
-                />
-              </CardContent>
-            </Card>
+            <article className="rounded-2xl glass-strong p-5 md:p-6">
+              <SectionHeader
+                icon={Copy}
+                title="解析结果"
+                action={{ label: '复制', onClick: handleCopyParsed }}
+              />
+              <textarea
+                readOnly
+                value={parsedText}
+                placeholder="解析后的注单会显示在这里"
+                rows={6}
+                onClick={handleCopyParsed}
+                title="点击复制"
+                aria-label="解析结果，点击复制"
+                className="focus-ring w-full cursor-pointer resize-none rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 font-mono text-sm leading-relaxed text-slate-300 placeholder:text-slate-600 focus:outline-none"
+              />
+            </article>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Calculator className="h-4 w-4" />
-                    拆单结果
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={handleCopySplit}>
-                    复制
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  readOnly
-                  value={splitText}
-                  placeholder="拆单结果会显示在这里"
-                  rows={8}
-                  className="font-mono text-sm cursor-pointer"
-                  onClick={handleCopySplit}
-                  title="点击复制"
-                />
-              </CardContent>
-            </Card>
-          </div>
+            <article className="rounded-2xl glass-strong p-5 md:p-6">
+              <SectionHeader
+                icon={Calculator}
+                title="拆单结果"
+                action={{ label: '复制', onClick: handleCopySplit }}
+              />
+              <textarea
+                readOnly
+                value={splitText}
+                placeholder="拆单结果会显示在这里"
+                rows={8}
+                onClick={handleCopySplit}
+                title="点击复制"
+                aria-label="拆单结果，点击复制"
+                className="focus-ring w-full cursor-pointer resize-none rounded-xl border border-slate-700/60 bg-slate-950/50 p-4 font-mono text-sm leading-relaxed text-slate-300 placeholder:text-slate-600 focus:outline-none"
+              />
+            </article>
+          </section>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">设置</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
+          <aside className="space-y-5 lg:col-span-4">
+            <article className="rounded-2xl glass-strong p-5 md:p-6">
+              <SectionHeader icon={Calculator} title="设置" />
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="groups">组数</Label>
-                  <Input
+                  <label htmlFor="groups" className="text-sm font-medium text-slate-300">
+                    组数
+                  </label>
+                  <input
                     id="groups"
                     type="number"
                     min={1}
                     value={groups}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGroups(parseInt(e.target.value) || 1)}
+                    className="focus-ring h-11 w-full rounded-xl border border-slate-700/60 bg-slate-950/50 px-3 text-sm text-slate-200 focus:border-emerald-500/40 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="minAmount">最低金额</Label>
-                  <Input
+                  <label htmlFor="minAmount" className="text-sm font-medium text-slate-300">
+                    最低金额
+                  </label>
+                  <input
                     id="minAmount"
                     type="number"
                     min={0}
                     value={minAmount}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMinAmount(parseInt(e.target.value) || 0)}
+                    className="focus-ring h-11 w-full rounded-xl border border-slate-700/60 bg-slate-950/50 px-3 text-sm text-slate-200 focus:border-emerald-500/40 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>倍数步长</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={step === 5 ? 'default' : 'outline'}
-                      className="flex-1"
+                  <span className="text-sm font-medium text-slate-300">倍数步长</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
                       onClick={() => handleStepChange(5)}
+                      aria-pressed={step === 5}
+                      className={`press-scale focus-ring min-h-[44px] rounded-xl py-2.5 text-sm font-semibold transition ${
+                        step === 5
+                          ? 'accent-gradient accent-glow text-slate-950'
+                          : 'border border-slate-700/60 bg-slate-800/40 text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+                      }`}
                     >
                       5x
-                    </Button>
-                    <Button
-                      variant={step === 10 ? 'default' : 'outline'}
-                      className="flex-1"
+                    </button>
+                    <button
                       onClick={() => handleStepChange(10)}
+                      aria-pressed={step === 10}
+                      className={`press-scale focus-ring min-h-[44px] rounded-xl py-2.5 text-sm font-semibold transition ${
+                        step === 10
+                          ? 'accent-gradient accent-glow text-slate-950'
+                          : 'border border-slate-700/60 bg-slate-800/40 text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+                      }`}
                     >
                       10x
-                    </Button>
+                    </button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </article>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">日志</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  ref={containerRef}
-                  className="h-48 overflow-y-auto rounded-md border bg-muted/50 p-3 text-xs"
-                >
-                  {logs.length === 0 ? (
-                    <span className="text-muted-foreground">暂无日志</span>
-                  ) : (
-                    logs.map((log) => (
-                      <div
-                        key={log.id}
-                        className={`mb-1 border-b border-border/50 pb-1 last:border-0 ${
-                          log.type === 'error'
-                            ? 'text-red-600'
-                            : log.type === 'success'
-                            ? 'text-green-600'
-                            : 'text-slate-600'
-                        }`}
-                      >
-                        <span className="opacity-60">[{log.time}]</span> {log.message}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            <article className="rounded-2xl glass-strong p-5 md:p-6">
+              <SectionHeader icon={Activity} title="运行日志" />
+              <div
+                ref={containerRef}
+                role="log"
+                aria-live="polite"
+                className="h-56 overflow-y-auto rounded-xl border border-slate-700/60 bg-slate-950/50 p-3 text-xs"
+              >
+                {logs.length === 0 ? (
+                  <span className="text-slate-600">暂无日志</span>
+                ) : (
+                  logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`mb-2 border-b border-slate-800/80 pb-2 last:border-0 ${
+                        log.type === 'error'
+                          ? 'text-red-400'
+                          : log.type === 'success'
+                          ? 'text-emerald-400'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      <span className="opacity-50">[{log.time}]</span> {log.message}
+                    </div>
+                  ))
+                )}
+              </div>
+            </article>
+          </aside>
+        </main>
 
-        <Separator className="my-6" />
-
-        <footer className="text-center text-xs text-slate-400">
-          sixhe © 2026 · React + TypeScript + Tauri
+        <footer className="mt-10 text-center text-xs text-slate-600">
+          sixhe © 2026 · React + TypeScript + Tauri · UI/UX Pro Max
         </footer>
       </div>
     </div>
