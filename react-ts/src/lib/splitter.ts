@@ -63,8 +63,8 @@ function assignZodiacsToGroup(
   groupIndex: number,
   zodiacs: string[],
   remaining: Map<string, number>,
-  minAmount: number,
-  step: number,
+  _minAmount: number,
+  _step: number,
   groupBets: SubBet[][],
   protectedCodes: Set<string>
 ): void {
@@ -78,9 +78,16 @@ function assignZodiacsToGroup(
     ),
   }));
 
-  // 所有生肖共用同一个金额，取各生肖最小剩余中的最小值随机生成
+  // 所有生肖共用同一个金额。生肖不需要取满，所以取 commonMin 的一半到 commonMin 之间，
+  // 仍按 step 对齐。剩余部分会进入最后一组，同一生肖的号码在最后一组仍保持同金额、成一段。
   const commonMin = Math.min(...infos.map((z) => z.minRemaining));
-  const amount = randomStepAmount(commonMin, minAmount, step);
+  // 生肖金额在 commonMin 的一半到 commonMin 之间随机取，
+  // 既不让生肖占满，也不固定死，保留一定随机性。
+  const minZodiacAmount = Math.max(
+    _minAmount,
+    Math.floor(commonMin / 2 / _step) * _step
+  );
+  const amount = randomStepAmount(commonMin, minZodiacAmount, _step);
 
   for (const { codes, minRemaining } of infos) {
     for (const code of codes) protectedCodes.add(code);
@@ -153,19 +160,8 @@ function distributeBets(
       .sort(() => Math.random() - 0.3);
   }
 
-  for (let i = 0; i < groups; i++) {
-    const isLast = i === groups - 1;
+  for (let i = 0; i < groups - 1; i++) {
     const codesLeft = getShuffledRegularCodes();
-
-    if (isLast) {
-      // 最后一组：兜底剩余所有号码（包括生肖剩余）
-      for (const [code, amount] of remaining) {
-        if (amount <= 0) continue;
-        groupBets[i].push({ groupIndex: i, code, amount });
-      }
-      remaining.clear();
-      continue;
-    }
 
     // 普通号码：按剩余数量比例取一批号码，再拆成两档金额，确保输出 2 段
     if (codesLeft.length > 0) {
@@ -218,6 +214,117 @@ function distributeBets(
     }
   }
 
+  // 避免生肖金额与普通码金额相同导致“同一金额被拆成两段”。
+  // 若发生碰撞，优先把普通码金额往上调一个 step（减少剩余），实在不行再往下调。
+  for (let i = 0; i < groups - 1; i++) {
+    if (groupZodiacs[i].length === 0) continue;
+    const zodiacAmount = groupBets[i].find((b) => protectedCodes.has(b.code))?.amount;
+    if (!zodiacAmount) continue;
+
+    const amountToCodes = new Map<number, string[]>();
+    for (const b of groupBets[i]) {
+      if (protectedCodes.has(b.code)) continue;
+      const list = amountToCodes.get(b.amount) ?? [];
+      list.push(b.code);
+      amountToCodes.set(b.amount, list);
+    }
+
+    const collidingAmounts = [...amountToCodes.keys()].filter((a) => a === zodiacAmount);
+    for (const amount of collidingAmounts) {
+      const codes = amountToCodes.get(amount)!;
+      const canIncrease = codes.every((code) => {
+        const bet = groupBets[i].find((b) => b.code === code)!;
+        const total = bet.amount + (remaining.get(code) ?? 0);
+        return bet.amount + step <= total;
+      });
+      const canDecrease = codes.every((code) => {
+        const bet = groupBets[i].find((b) => b.code === code)!;
+        return bet.amount - step >= minAmount;
+      });
+      const newAmount = canIncrease
+        ? amount + step
+        : canDecrease
+        ? amount - step
+        : amount;
+      if (newAmount === amount) continue;
+
+      for (const code of codes) {
+        const bet = groupBets[i].find((b) => b.code === code)!;
+        const total = bet.amount + (remaining.get(code) ?? 0);
+        bet.amount = newAmount;
+        remaining.set(code, total - newAmount);
+      }
+    }
+  }
+
+  // 在最后一组兜底前，把剩余号码归纳到前 groups-1 组。
+  // 核心约束：合并/新增后，目标组的段数（金额种类数）不得超过 3。
+  // 生肖号码只能归纳到它原本所属的组，避免把同一个生肖拆到不同组。
+  const zodiacOwner = new Map<string, number>();
+  for (let i = 0; i < groups - 1; i++) {
+    for (const zodiac of groupZodiacs[i]) {
+      for (const code of ZODIAC_MAP_2026[zodiac]) {
+        zodiacOwner.set(code, i);
+      }
+    }
+  }
+
+  // 兜底前把剩余号码归纳到前 groups-1 组，前提是“不增加段数”。
+  // 如果目标组没有该号码且段数 < 3，也可以新增一段；否则留给最后一组兜底。
+  function segmentsAfterAdding(
+    group: SubBet[],
+    zodiacs: string[],
+    code: string,
+    amount: number
+  ): number {
+    const copy = group.map((b) => ({ ...b }));
+    const existing = copy.find((b) => b.code === code);
+    if (existing) {
+      existing.amount += amount;
+    } else {
+      copy.push({ groupIndex: 0, code, amount });
+    }
+    return countSegments(copy, zodiacs);
+  }
+
+  for (const [code, amount] of [...remaining.entries()]) {
+    if (amount <= 0) continue;
+    const owner = zodiacOwner.get(code);
+
+    // 先尝试合并到已有同号码，且合并后段数不增加
+    let merged = false;
+    for (let i = 0; i < groups - 1 && !merged; i++) {
+      if (owner !== undefined && owner !== i) continue;
+      const existing = groupBets[i].find((b) => b.code === code);
+      if (!existing) continue;
+      const before = countSegments(groupBets[i], groupZodiacs[i]);
+      const after = segmentsAfterAdding(groupBets[i], groupZodiacs[i], code, amount);
+      if (after <= before) {
+        existing.amount += amount;
+        remaining.delete(code);
+        merged = true;
+      }
+    }
+    if (merged) continue;
+
+    // 再尝试作为新段加入段数不足 3 的组
+    for (let i = 0; i < groups - 1; i++) {
+      if (owner !== undefined && owner !== i) continue;
+      if (groupBets[i].some((b) => b.code === code)) continue;
+      if (countSegments(groupBets[i], groupZodiacs[i]) >= 3) continue;
+      groupBets[i].push({ groupIndex: i, code, amount });
+      remaining.delete(code);
+      break;
+    }
+  }
+
+  // 最后一组：兜底剩余所有号码（包括生肖剩余）
+  for (const [code, amount] of remaining) {
+    if (amount <= 0) continue;
+    groupBets[groups - 1].push({ groupIndex: groups - 1, code, amount });
+  }
+  remaining.clear();
+
   return { groupBets, groupZodiacs };
 }
 
@@ -260,26 +367,25 @@ function countSegments(group: SubBet[], zodiacs: string[]): number {
   let count = 0;
   for (const codes of amountMap.values()) {
     const remaining = [...codes];
+    let hasZodiac = false;
     for (const zodiac of zodiacs) {
       const zodiacCodes = ZODIAC_MAP_2026[zodiac];
       if (zodiacCodes.every((c) => remaining.includes(c))) {
-        count++;
+        hasZodiac = true;
         for (const c of zodiacCodes) {
           const idx = remaining.indexOf(c);
           if (idx !== -1) remaining.splice(idx, 1);
         }
       }
     }
+    if (hasZodiac) count++;
     if (remaining.length > 0) count++;
   }
   return count;
 }
 
-/** 获取一组中可移动的普通号码段（不移动属于前 groups-1 组生肖的号码） */
-function getMovableSegments(
-  group: SubBet[],
-  protectedCodes: Set<string>
-): { amount: number; codes: string[] }[] {
+/** 获取一组中按金额分组的段 */
+function getMovableSegments(group: SubBet[]): { amount: number; codes: string[] }[] {
   const amountMap = new Map<number, string[]>();
   for (const b of group) {
     const list = amountMap.get(b.amount) ?? [];
@@ -287,14 +393,9 @@ function getMovableSegments(
     amountMap.set(b.amount, list);
   }
 
-  const segments: { amount: number; codes: string[] }[] = [];
-  for (const [amount, codes] of amountMap) {
-    const remaining = codes.filter((c) => !protectedCodes.has(c));
-    if (remaining.length > 0) {
-      segments.push({ amount, codes: remaining });
-    }
-  }
-  return segments;
+  return [...amountMap.entries()]
+    .filter(([_, codes]) => codes.length > 0)
+    .map(([amount, codes]) => ({ amount, codes }));
 }
 
 export function splitBets(
@@ -330,34 +431,118 @@ export function splitBets(
     }
   }
 
-  // 若前 groups-1 组段数不足 3，从最后一组搬 1-2 段普通号码过去
-  for (let i = 0; i < groups - 1; i++) {
-    while (countSegments(merged[i], groupZodiacs[i]) < 3) {
-      const movable = getMovableSegments(merged[groups - 1], protectedCodes);
-      if (movable.length === 0) break;
+  // 后处理：把最后一组的多余段移动到前 groups-1 组。
+  // 与兜底前的归纳逻辑区分：这里移动的是已经成形的“段”，而不是单个剩余号码。
+  // 核心约束同样：移动/合并后目标组的段数不得超过 3，且不能拆分生肖。
+  function segmentsAfterSegmentMove(
+    target: SubBet[],
+    targetZodiacs: string[],
+    segment: { amount: number; codes: string[] }
+  ): number {
+    const copy = target.map((b) => ({ ...b }));
+    for (const code of segment.codes) {
+      const existing = copy.find((b) => b.code === code);
+      if (existing) {
+        existing.amount += segment.amount;
+      } else {
+        copy.push({ groupIndex: 0, code, amount: segment.amount });
+      }
+    }
+    return countSegments(copy, targetZodiacs);
+  }
 
-      // 优先搬金额与目标组现有段不同的，确保段数确实增加
-      const existingAmounts = new Set(merged[i].map((b) => b.amount));
-      const segment = movable.find((s) => !existingAmounts.has(s.amount));
-      if (!segment) break;
-
-      const codeSet = new Set(segment.codes);
-      const toMove: SubBet[] = [];
-      merged[groups - 1] = merged[groups - 1].filter((b) => {
-        if (codeSet.has(b.code)) {
-          toMove.push(b);
-          return false;
-        }
-        return true;
-      });
-      for (const b of toMove) {
-        merged[i].push({ ...b, groupIndex: i });
+  function moveSegment(
+    source: SubBet[],
+    target: SubBet[],
+    targetIndex: number,
+    segment: { amount: number; codes: string[] }
+  ): void {
+    const codeSet = new Set(segment.codes);
+    const kept = source.filter((b) => !codeSet.has(b.code));
+    source.length = 0;
+    source.push(...kept);
+    for (const code of segment.codes) {
+      const existing = target.find((b) => b.code === code);
+      if (existing) {
+        existing.amount += segment.amount;
+      } else {
+        target.push({ groupIndex: targetIndex, code, amount: segment.amount });
       }
     }
   }
 
+  let moved = true;
+  while (moved) {
+    moved = false;
+    // 把最后一组的段拆成“普通码”和“生肖码”两部分。
+    // 普通码部分可以往前搬；生肖码部分留在最后一组，避免把生肖拆到前面。
+    const movable: { amount: number; codes: string[] }[] = [];
+    for (const segment of getMovableSegments(merged[groups - 1])) {
+      const regularCodes = segment.codes.filter((c) => !protectedCodes.has(c));
+      if (regularCodes.length > 0) {
+        movable.push({ amount: segment.amount, codes: regularCodes });
+      }
+    }
+    if (movable.length === 0) break;
+
+    // 优先搬运单码/小段，并且优先合并到目标组已有的同号码上（不增加或仅少量增加段数）
+    let best:
+      | { targetIndex: number; segment: { amount: number; codes: string[] }; count: number }
+      | null = null;
+    for (let i = 0; i < groups - 1; i++) {
+      const currentCount = countSegments(merged[i], groupZodiacs[i]);
+      for (const segment of movable) {
+        const cnt = segmentsAfterSegmentMove(
+          merged[i],
+          groupZodiacs[i],
+          segment
+        );
+        // 段数上限 3。若目标组已 3 段，只允许能“减少段数”的合并。
+        if (cnt > 3) continue;
+        if (currentCount >= 3 && cnt >= currentCount) continue;
+
+        const isSingle = segment.codes.length === 1;
+        const mergesExisting =
+          isSingle && merged[i].some((b) => b.code === segment.codes[0]);
+
+        let bestIsSingle = false;
+        let bestMergesExisting = false;
+        if (best) {
+          const bestSegment = best.segment;
+          bestIsSingle = bestSegment.codes.length === 1;
+          bestMergesExisting =
+            bestIsSingle &&
+            merged[best.targetIndex].some((b) => b.code === bestSegment.codes[0]);
+        }
+
+        if (
+          !best ||
+          (isSingle && !bestIsSingle) ||
+          (isSingle === bestIsSingle && mergesExisting && !bestMergesExisting) ||
+          (isSingle === bestIsSingle &&
+            mergesExisting === bestMergesExisting &&
+            segment.codes.length < best.segment.codes.length) ||
+          (isSingle === bestIsSingle &&
+            mergesExisting === bestMergesExisting &&
+            segment.codes.length === best.segment.codes.length &&
+            cnt < best.count)
+        ) {
+          best = { targetIndex: i, segment, count: cnt };
+        }
+      }
+    }
+    if (best) {
+      moveSegment(
+        merged[groups - 1],
+        merged[best.targetIndex],
+        best.targetIndex,
+        best.segment
+      );
+      moved = true;
+    }
+  }
+
   return merged
-    .filter((g) => g.length > 0)
     .map((g, idx) => {
       const groupZodiacList = groupZodiacs[idx];
       const sorted = g.sort((a, b) => a.code.localeCompare(b.code));
