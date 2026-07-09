@@ -58,14 +58,50 @@ function assignCodesToGroup(
   return assigned;
 }
 
+/** 为一组分配多个生肖，所有生肖使用相同金额，便于合并成一段 */
+function assignZodiacsToGroup(
+  groupIndex: number,
+  zodiacs: string[],
+  remaining: Map<string, number>,
+  minAmount: number,
+  step: number,
+  groupBets: SubBet[][],
+  protectedCodes: Set<string>
+): void {
+  if (zodiacs.length === 0) return;
+
+  const infos = zodiacs.map((name) => ({
+    name,
+    codes: ZODIAC_MAP_2026[name],
+    minRemaining: Math.min(
+      ...ZODIAC_MAP_2026[name].map((c) => remaining.get(c) ?? 0)
+    ),
+  }));
+
+  // 所有生肖共用同一个金额，取各生肖最小剩余中的最小值随机生成
+  const commonMin = Math.min(...infos.map((z) => z.minRemaining));
+  const amount = randomStepAmount(commonMin, minAmount, step);
+
+  for (const { codes, minRemaining } of infos) {
+    for (const code of codes) protectedCodes.add(code);
+    if (minRemaining <= 0) continue;
+    for (const code of codes) {
+      groupBets[groupIndex].push({ groupIndex, code, amount });
+      const left = (remaining.get(code) ?? 0) - amount;
+      if (left <= 0) remaining.delete(code);
+      else remaining.set(code, left);
+    }
+  }
+}
+
 function distributeBets(
   bets: Bet[],
   groups: number,
   minAmount: number,
   step: number
-): { groupBets: SubBet[][]; groupZodiacs: (string | null)[] } {
+): { groupBets: SubBet[][]; groupZodiacs: string[][] } {
   const groupBets: SubBet[][] = Array.from({ length: groups }, () => []);
-  const groupZodiacs: (string | null)[] = Array.from({ length: groups }, () => null);
+  const groupZodiacs: string[][] = Array.from({ length: groups }, () => []);
 
   // 聚合 code -> 剩余金额
   const remaining = new Map<string, number>();
@@ -73,11 +109,22 @@ function distributeBets(
     remaining.set(b.code, (remaining.get(b.code) ?? 0) + b.amount);
   }
 
-  // 预先为前 groups-1 组各分配一个不同的完整生肖
+  // 为前 groups-1 组随机分配 1-3 个不同的完整生肖
   const completeZodiacs = getCompleteZodiacs(remaining);
-  const assignedZodiac: (string | null)[] = Array.from({ length: groups }, () => null);
-  for (let i = 0; i < groups - 1 && i < completeZodiacs.length; i++) {
-    assignedZodiac[i] = completeZodiacs[i];
+  const assignedZodiac: string[][] = Array.from({ length: groups }, () => []);
+  let zodiacIdx = 0;
+  for (let i = 0; i < groups - 1 && zodiacIdx < completeZodiacs.length; i++) {
+    const remainingGroups = groups - 1 - i;
+    const maxForThis = Math.min(
+      3,
+      completeZodiacs.length - zodiacIdx - (remainingGroups - 1)
+    );
+    const count = Math.max(
+      1,
+      Math.min(maxForThis, Math.floor(Math.random() * 3) + 1)
+    );
+    assignedZodiac[i] = completeZodiacs.slice(zodiacIdx, zodiacIdx + count);
+    zodiacIdx += count;
   }
 
   // 收集已分配生肖的号码，普通号码阶段不再碰它们，确保每组生肖独立成段
@@ -85,27 +132,25 @@ function distributeBets(
 
   // 第一轮：先把生肖分配到前 groups-1 组
   for (let i = 0; i < groups - 1; i++) {
-    const zodiacName = assignedZodiac[i];
-    if (!zodiacName) continue;
-    groupZodiacs[i] = zodiacName;
-    const codes = ZODIAC_MAP_2026[zodiacName];
-    for (const code of codes) protectedCodes.add(code);
-    const minRemaining = Math.min(...codes.map((c) => remaining.get(c) ?? 0));
-    if (minRemaining <= 0) continue;
-    const amount = randomStepAmount(minRemaining, minAmount, step);
-    for (const code of codes) {
-      groupBets[i].push({ groupIndex: i, code, amount });
-      const left = (remaining.get(code) ?? 0) - amount;
-      if (left <= 0) remaining.delete(code);
-      else remaining.set(code, left);
-    }
+    const zodiacs = assignedZodiac[i];
+    if (zodiacs.length === 0) continue;
+    groupZodiacs[i] = zodiacs;
+    assignZodiacsToGroup(
+      i,
+      zodiacs,
+      remaining,
+      minAmount,
+      step,
+      groupBets,
+      protectedCodes
+    );
   }
 
   // 第二轮：分配普通号码（避开生肖号码）
   function getShuffledRegularCodes(): string[] {
     return [...remaining.keys()]
       .filter((c) => (remaining.get(c) ?? 0) > 0 && !protectedCodes.has(c))
-      .sort(() => Math.random() - 0.5);
+      .sort(() => Math.random() - 0.3);
   }
 
   for (let i = 0; i < groups; i++) {
@@ -126,10 +171,10 @@ function distributeBets(
     if (codesLeft.length > 0) {
       // 按你原定的比例规则计算取多少个
       function pickCountByRatio(n: number): number {
-        if (n > 25) return Math.max(1, Math.ceil(n * 0.7));
-        if (n > 10) return Math.max(1, Math.ceil(n * 0.8));
-        if (n > 5) return Math.max(1, Math.ceil(n * 0.9));
-        return Math.max(1, Math.min(n, Math.floor(Math.random() * 3) + 1));
+        if (n > 25) return Math.ceil(n * 0.7);
+        if (n > 10) return Math.ceil(n * 0.8);
+        if (n > 5) return Math.ceil(n * 0.9);
+        return Math.max(2, Math.min(n, Math.floor(Math.random() * 3) + 2));
       }
 
       const pickCount = Math.min(codesLeft.length, pickCountByRatio(codesLeft.length));
@@ -203,6 +248,55 @@ function mergeDuplicateCodes(groupBets: SubBet[][]): SubBet[][] {
   });
 }
 
+/** 计算一组格式化后的段数 */
+function countSegments(group: SubBet[], zodiacs: string[]): number {
+  const amountMap = new Map<number, string[]>();
+  for (const b of group) {
+    const list = amountMap.get(b.amount) ?? [];
+    list.push(b.code);
+    amountMap.set(b.amount, list);
+  }
+
+  let count = 0;
+  for (const codes of amountMap.values()) {
+    const remaining = [...codes];
+    for (const zodiac of zodiacs) {
+      const zodiacCodes = ZODIAC_MAP_2026[zodiac];
+      if (zodiacCodes.every((c) => remaining.includes(c))) {
+        count++;
+        for (const c of zodiacCodes) {
+          const idx = remaining.indexOf(c);
+          if (idx !== -1) remaining.splice(idx, 1);
+        }
+      }
+    }
+    if (remaining.length > 0) count++;
+  }
+  return count;
+}
+
+/** 获取一组中可移动的普通号码段（不移动属于前 groups-1 组生肖的号码） */
+function getMovableSegments(
+  group: SubBet[],
+  protectedCodes: Set<string>
+): { amount: number; codes: string[] }[] {
+  const amountMap = new Map<number, string[]>();
+  for (const b of group) {
+    const list = amountMap.get(b.amount) ?? [];
+    list.push(b.code);
+    amountMap.set(b.amount, list);
+  }
+
+  const segments: { amount: number; codes: string[] }[] = [];
+  for (const [amount, codes] of amountMap) {
+    const remaining = codes.filter((c) => !protectedCodes.has(c));
+    if (remaining.length > 0) {
+      segments.push({ amount, codes: remaining });
+    }
+  }
+  return segments;
+}
+
 export function splitBets(
   bets: Bet[],
   groups: number,
@@ -226,10 +320,46 @@ export function splitBets(
   const { groupBets, groupZodiacs } = distributeBets(bets, groups, minAmount, step);
   const merged = mergeDuplicateCodes(groupBets);
 
+  // 收集前 groups-1 组所有生肖号码，补齐时不移动这些号码
+  const protectedCodes = new Set<string>();
+  for (let i = 0; i < groups - 1; i++) {
+    for (const zodiac of groupZodiacs[i]) {
+      for (const code of ZODIAC_MAP_2026[zodiac]) {
+        protectedCodes.add(code);
+      }
+    }
+  }
+
+  // 若前 groups-1 组段数不足 3，从最后一组搬 1-2 段普通号码过去
+  for (let i = 0; i < groups - 1; i++) {
+    while (countSegments(merged[i], groupZodiacs[i]) < 3) {
+      const movable = getMovableSegments(merged[groups - 1], protectedCodes);
+      if (movable.length === 0) break;
+
+      // 优先搬金额与目标组现有段不同的，确保段数确实增加
+      const existingAmounts = new Set(merged[i].map((b) => b.amount));
+      const segment = movable.find((s) => !existingAmounts.has(s.amount));
+      if (!segment) break;
+
+      const codeSet = new Set(segment.codes);
+      const toMove: SubBet[] = [];
+      merged[groups - 1] = merged[groups - 1].filter((b) => {
+        if (codeSet.has(b.code)) {
+          toMove.push(b);
+          return false;
+        }
+        return true;
+      });
+      for (const b of toMove) {
+        merged[i].push({ ...b, groupIndex: i });
+      }
+    }
+  }
+
   return merged
     .filter((g) => g.length > 0)
     .map((g, idx) => {
-      const primaryZodiac = groupZodiacs[idx];
+      const groupZodiacList = groupZodiacs[idx];
       const sorted = g.sort((a, b) => a.code.localeCompare(b.code));
       const amountMap = new Map<number, string[]>();
       for (const b of sorted) {
@@ -241,25 +371,25 @@ export function splitBets(
       const parts: string[] = [];
       for (const [amount, codes] of [...amountMap.entries()].sort((a, b) => a[0] - b[0])) {
         const remaining = [...codes];
-        let zodiacName: string | null = null;
+        const partsForAmount: string[] = [];
 
-        // 只合并该组预先分配的主生肖，避免普通号码凑出额外生肖段
-        if (primaryZodiac) {
-          const zodiacCodes = ZODIAC_MAP_2026[primaryZodiac];
+        // 合并该组预先分配的所有生肖，同金额多个生肖合并成一段
+        const matchedZodiacs: string[] = [];
+        for (const zodiacName of groupZodiacList) {
+          const zodiacCodes = ZODIAC_MAP_2026[zodiacName];
           const set = new Set(remaining);
           if (zodiacCodes.every((c) => set.has(c))) {
-            zodiacName = primaryZodiac;
+            matchedZodiacs.push(zodiacName);
             for (const c of zodiacCodes) {
-              const idx = remaining.indexOf(c);
-              if (idx !== -1) remaining.splice(idx, 1);
+              const rIdx = remaining.indexOf(c);
+              if (rIdx !== -1) remaining.splice(rIdx, 1);
             }
           }
         }
-
-        const partsForAmount: string[] = [];
-        if (zodiacName) {
-          partsForAmount.push(`${zodiacName}各${amount}`);
+        if (matchedZodiacs.length > 0) {
+          partsForAmount.push(`${matchedZodiacs.join('')}各${amount}`);
         }
+
         if (remaining.length > 0) {
           partsForAmount.push(
             `${remaining.sort((a, b) => a.localeCompare(b)).join('-')}各${amount}`
