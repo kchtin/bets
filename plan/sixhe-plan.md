@@ -29,7 +29,7 @@ sixhe/
 ├── test/                # 单元测试
 │   ├── parser.test.js
 │   └── splitter.test.js
-├── src-tauri/           # Rust + Tauri 后端（待初始化）
+├── src-tauri/           # Rust + Tauri 后端（已初始化）
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── src/main.rs
@@ -238,20 +238,21 @@ sixhe/
 2. 支持 5x/10x 单选步长。
 3. 添加单元测试到 `test/splitter.test.js`。
 
-### Step 5：接入 Tauri 剪贴板 ⏳
+### Step 5：Tauri 项目初始化 ✅
 
-1. 在 Rust 侧暴露或直接使用 `@tauri-apps/api/clipboard`。
-2. 实现粘贴读取与结果写入。
+1. 使用 `@tauri-apps/cli` 初始化 `src-tauri/`。
+2. 配置 `tauri.conf.json` 的构建命令与窗口选项。
 
-> 当前环境未安装 Rust，Tauri 相关步骤需后续补齐。
+### Step 6：Windows 打包 ✅（CI 自动完成）
 
-### Step 6：Windows 打包 ⏳
+1. 已配置 `.github/workflows/build.yml`。
+2. 每次 `push` 到 `main` 分支时，GitHub Actions 会自动：
+   - 运行 `npm test`
+   - 在 `windows-latest` 环境中构建 Tauri Windows 安装包
+   - 上传 `.msi` / `.exe` 产物到 Artifacts
+3. 本地如需构建，需安装 Rust + MSVC 工具链后执行 `cargo tauri build --target x86_64-pc-windows-msvc`。
 
-1. 配置 `tauri.conf.json` 的 Windows 构建选项。
-2. 运行 `cargo tauri build --target x86_64-pc-windows-msvc`。
-3. 输出 `.msi` 与/或 `.exe` 安装包。
-
-> 当前环境未安装 Rust，Windows 打包需在安装 Rust 工具链后于 Windows 或交叉编译环境执行。
+> 当前 macOS 环境未安装 Rust，本地构建需在安装 Rust 工具链后进行；CI 端已可自动完成 Windows 打包。
 
 ## 9. 测试策略
 
