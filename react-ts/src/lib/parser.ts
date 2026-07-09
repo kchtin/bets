@@ -36,7 +36,7 @@ function parseSegment(segment: string): string[] {
   const trimmed = segment.trim();
   if (!trimmed) return [];
 
-  const amountMatch = trimmed.match(/([*个各])(\d+)$/);
+  const amountMatch = trimmed.match(/([*个各xX])(\d+)$/);
   if (!amountMatch) {
     throw new Error(`解析失败：未识别金额（${trimmed}）`);
   }
