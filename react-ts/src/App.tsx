@@ -5,7 +5,7 @@ import { useClipboard } from './hooks/useClipboard';
 import { useLog } from './hooks/useLog';
 import { ClipboardPaste, Copy, Calculator, Trash2, Activity } from 'lucide-react';
 
-type Step = 5 | 10;
+type Step = 5 | 10 | 15 | 20;
 
 function App() {
   const [input, setInput] = useState('');
@@ -18,6 +18,8 @@ function App() {
   const [minAmountInput, setMinAmountInput] = useState(String(minAmount));
   const [minCodes, setMinCodes] = useState(1);
   const [minCodesInput, setMinCodesInput] = useState(String(minCodes));
+  const [maxKinds, setMaxKinds] = useState(4);
+  const [maxKindsInput, setMaxKindsInput] = useState('4');
   const [step, setStep] = useState<Step>(10);
 
   useEffect(() => {
@@ -27,6 +29,10 @@ function App() {
   useEffect(() => {
     setMinCodesInput(String(minCodes));
   }, [minCodes]);
+
+  useEffect(() => {
+    setMaxKindsInput(String(maxKinds));
+  }, [maxKinds]);
 
   useEffect(() => {
     setGroupsInput(String(groups));
@@ -56,13 +62,13 @@ function App() {
     }
   }, [append]);
 
-  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number, currentMinCodes: number) => {
+  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number, currentMinCodes: number, currentMaxKinds: number) => {
     if (currentBets.length === 0) {
       setSplitText('');
       return;
     }
     try {
-      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep, currentMinCodes);
+      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep, currentMinCodes, currentMaxKinds);
       setSplitText(lines.join('\n'));
       append('已自动拆单', 'info');
     } catch (err) {
@@ -72,8 +78,8 @@ function App() {
   }, [append]);
 
   useEffect(() => {
-    doSplit(bets, groups, minAmount, step, minCodes);
-  }, [bets, groups, minAmount, step, minCodes, doSplit]);
+    doSplit(bets, groups, minAmount, step, minCodes, maxKinds);
+  }, [bets, groups, minAmount, step, minCodes, maxKinds, doSplit]);
 
   const handleInputChange = (text: string) => {
     setInput(text);
@@ -94,7 +100,7 @@ function App() {
   };
 
   const handleManualSplit = () => {
-    doSplit(bets, groups, minAmount, step, minCodes);
+    doSplit(bets, groups, minAmount, step, minCodes, maxKinds);
   };
 
   const handleCopyParsed = async () => {
@@ -366,30 +372,54 @@ function App() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <label htmlFor="maxKinds" className="text-xs font-medium text-slate-700">
+                    每组最多小项
+                  </label>
+                  <input
+                    id="maxKinds"
+                    type="number"
+                    min={0}
+                    value={maxKindsInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const raw = e.target.value;
+                      setMaxKindsInput(raw);
+                      const n = parseInt(raw, 10);
+                      if (!Number.isNaN(n) && n >= 0) {
+                        setMaxKinds(n);
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(maxKindsInput, 10);
+                      if (maxKindsInput.trim() === '') {
+                        setMaxKinds(0);
+                      } else if (Number.isNaN(n) || n < 0) {
+                        setMaxKindsInput(String(maxKinds));
+                      } else {
+                        setMaxKinds(n);
+                        setMaxKindsInput(String(n));
+                      }
+                    }}
+                    className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <span className="text-xs font-medium text-slate-700">倍数步长</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleStepChange(5)}
-                      aria-pressed={step === 5}
-                      className={`press-scale focus-ring min-h-[40px] rounded-xl py-2 text-sm font-semibold transition ${
-                        step === 5
-                          ? 'accent-gradient accent-glow text-white shadow-md'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      5x
-                    </button>
-                    <button
-                      onClick={() => handleStepChange(10)}
-                      aria-pressed={step === 10}
-                      className={`press-scale focus-ring min-h-[40px] rounded-xl py-2 text-sm font-semibold transition ${
-                        step === 10
-                          ? 'accent-gradient accent-glow text-white shadow-md'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      10x
-                    </button>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[5, 10, 15, 20].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleStepChange(s as Step)}
+                        aria-pressed={step === s}
+                        className={`press-scale focus-ring min-h-[40px] rounded-xl py-2 text-sm font-semibold transition ${
+                          step === s
+                            ? 'accent-gradient accent-glow text-white shadow-md'
+                            : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
+                        }`}
+                      >
+                        {s}x
+                      </button>
+                    ))}
                   </div>
                 </div>
 

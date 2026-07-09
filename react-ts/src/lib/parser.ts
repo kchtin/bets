@@ -120,7 +120,12 @@ export function parseStandardBets(text: string): Bet[] {
 export function formatParsedBets(bets: Bet[], columns = 5): string {
   if (!bets || bets.length === 0) return '';
 
-  const items = bets.map((b) => `${b.code}*${b.amount}`);
+  const merged = new Map<string, number>();
+  for (const b of bets) {
+    merged.set(b.code, (merged.get(b.code) ?? 0) + b.amount);
+  }
+
+  const items = [...merged.entries()].map(([code, amount]) => `${code}*${amount}`);
   const maxLen = Math.max(...items.map((s) => s.length));
   const colWidth = maxLen + 3;
 
