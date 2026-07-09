@@ -139,8 +139,8 @@ function App() {
         <div className="absolute -bottom-[10%] -right-[10%] h-[400px] w-[400px] rounded-full bg-emerald-300/10 blur-[100px]" />
       </div>
 
-      <div className="mx-auto w-full max-w-7xl">
-        <header className="mb-6 flex items-center gap-4">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
+        <header className="mb-6 flex shrink-0 items-center gap-4">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl accent-gradient accent-glow press-scale focus-ring shadow-md">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
