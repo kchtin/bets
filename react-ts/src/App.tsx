@@ -133,7 +133,7 @@ function App() {
   );
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden p-4 md:p-5 lg:p-6">
+    <div className="relative flex h-screen flex-col overflow-x-hidden p-4 md:p-5 lg:p-6">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -left-[15%] -top-[10%] h-[500px] w-[500px] rounded-full bg-emerald-400/10 blur-[120px]" />
         <div className="absolute -bottom-[10%] -right-[10%] h-[400px] w-[400px] rounded-full bg-emerald-300/10 blur-[100px]" />
@@ -150,9 +150,9 @@ function App() {
           </div>
         </header>
 
-        <main className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-12">
-          <section className="flex flex-col gap-5 lg:col-span-8">
-            <article className="ambient-light flex-[1.2] rounded-2xl glass-strong p-4 card-shadow md:p-5">
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-12">
+          <section className="flex min-h-0 flex-col gap-5 lg:col-span-8">
+            <article className="ambient-light flex min-h-0 flex-[1.2] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-gradient accent-glow text-white shadow-sm">
@@ -181,14 +181,13 @@ function App() {
                 id="bet-input"
                 aria-label="下注文案输入"
                 placeholder="粘贴或输入下注文案，例如：牛羊个200"
-                rows={3}
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
-                className="focus-ring h-[calc(100%-3rem)] min-h-[80px] w-full resize-none rounded-xl border border-slate-200 bg-white/80 p-3 font-mono text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                className="focus-ring min-h-0 flex-1 resize-none rounded-xl border border-slate-200 bg-white/80 p-3 font-mono text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
               />
             </article>
 
-            <article className="flex-[2] rounded-2xl glass-strong p-4 card-shadow md:p-5">
+            <article className="flex min-h-0 flex-[2] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader
                 icon={Copy}
                 title="解析结果"
@@ -198,11 +197,11 @@ function App() {
                 readOnly
                 value={parsedText}
                 placeholder="解析后的注单会显示在这里"
-                className="focus-ring h-[calc(100%-2.5rem)] min-h-[100px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                className="focus-ring min-h-0 flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
             </article>
 
-            <article className="flex-[3] rounded-2xl glass-strong p-4 card-shadow md:p-5">
+            <article className="flex min-h-0 flex-[3] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader
                 icon={Calculator}
                 title="拆单结果"
@@ -212,12 +211,12 @@ function App() {
                 readOnly
                 value={splitText}
                 placeholder="拆单结果会显示在这里"
-                className="focus-ring h-[calc(100%-2.5rem)] min-h-[160px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                className="focus-ring min-h-0 flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50/80 p-3 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
             </article>
           </section>
 
-          <aside className="flex flex-col gap-5 lg:col-span-4">
+          <aside className="flex min-h-0 flex-col gap-5 lg:col-span-4">
             <article className="rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader icon={Calculator} title="设置" />
               <div className="space-y-4">

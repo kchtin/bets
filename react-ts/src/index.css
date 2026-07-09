@@ -33,6 +33,9 @@
   * {
     @apply border-border;
   }
+  html, body, #root {
+    height: 100%;
+  }
   html {
     scroll-behavior: smooth;
   }
@@ -40,7 +43,6 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Fira Sans', system-ui, -apple-system, sans-serif;
     background: linear-gradient(180deg, hsl(210 40% 99%) 0%, hsl(210 40% 96%) 100%);
-    min-height: 100vh;
   }
   code, pre, .font-mono {
     font-family: 'Fira Code', ui-monospace, monospace;
