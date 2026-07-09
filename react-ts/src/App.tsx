@@ -3,7 +3,7 @@ import { parseBetText, parseStandardBets, formatParsedBets, type Bet } from './l
 import { splitBets } from './lib/splitter';
 import { useClipboard } from './hooks/useClipboard';
 import { useLog } from './hooks/useLog';
-import { ClipboardPaste, Copy, Calculator, Trash2, Sparkles, Activity } from 'lucide-react';
+import { ClipboardPaste, Copy, Calculator, Trash2, Activity } from 'lucide-react';
 
 type Step = 5 | 10;
 
@@ -141,8 +141,8 @@ function App() {
 
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
         <header className="mb-6 flex shrink-0 items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl accent-gradient accent-glow press-scale focus-ring shadow-md">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md press-scale focus-ring">
+            <img src="/logo.png" alt="sixhe" className="h-full w-full object-cover" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gradient md:text-3xl">sixhe</h1>
