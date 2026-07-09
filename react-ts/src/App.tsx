@@ -13,8 +13,24 @@ function App() {
   const [splitText, setSplitText] = useState('');
   const [bets, setBets] = useState<Bet[]>([]);
   const [groups, setGroups] = useState(5);
+  const [groupsInput, setGroupsInput] = useState(String(groups));
   const [minAmount, setMinAmount] = useState(10);
+  const [minAmountInput, setMinAmountInput] = useState(String(minAmount));
+  const [minCodes, setMinCodes] = useState(1);
+  const [minCodesInput, setMinCodesInput] = useState(String(minCodes));
   const [step, setStep] = useState<Step>(10);
+
+  useEffect(() => {
+    setMinAmountInput(String(minAmount));
+  }, [minAmount]);
+
+  useEffect(() => {
+    setMinCodesInput(String(minCodes));
+  }, [minCodes]);
+
+  useEffect(() => {
+    setGroupsInput(String(groups));
+  }, [groups]);
 
   const { copy, paste } = useClipboard();
   const { logs, append, containerRef } = useLog();
@@ -40,13 +56,13 @@ function App() {
     }
   }, [append]);
 
-  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number) => {
+  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number, currentMinCodes: number) => {
     if (currentBets.length === 0) {
       setSplitText('');
       return;
     }
     try {
-      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep);
+      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep, currentMinCodes);
       setSplitText(lines.join('\n'));
       append('已自动拆单', 'info');
     } catch (err) {
@@ -56,8 +72,8 @@ function App() {
   }, [append]);
 
   useEffect(() => {
-    doSplit(bets, groups, minAmount, step);
-  }, [bets, groups, minAmount, step, doSplit]);
+    doSplit(bets, groups, minAmount, step, minCodes);
+  }, [bets, groups, minAmount, step, minCodes, doSplit]);
 
   const handleInputChange = (text: string) => {
     setInput(text);
@@ -73,11 +89,12 @@ function App() {
     }
   };
 
+  const handleParse = () => {
+    doParse(input);
+  };
+
   const handleManualSplit = () => {
-    doSplit(bets, groups, minAmount, step);
-    copy(splitText).then((ok) => {
-      append(ok ? '拆单结果已复制' : '复制失败', ok ? 'success' : 'error');
-    });
+    doSplit(bets, groups, minAmount, step, minCodes);
   };
 
   const handleCopyParsed = async () => {
@@ -188,11 +205,30 @@ function App() {
             </article>
 
             <article className="flex min-h-0 flex-[2] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
-              <SectionHeader
-                icon={Copy}
-                title="解析结果"
-                action={{ label: '复制', onClick: handleCopyParsed }}
-              />
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-gradient accent-glow text-white shadow-sm">
+                    <Copy className="h-4 w-4" strokeWidth={2.5} />
+                  </div>
+                  <h2 className="text-sm font-semibold tracking-wide text-slate-800">解析结果</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleParse}
+                    className="press-scale focus-ring flex min-h-[36px] items-center gap-1.5 rounded-lg accent-gradient px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-emerald-500/15 transition hover:brightness-105"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    解析
+                  </button>
+                  <button
+                    onClick={handleCopyParsed}
+                    className="press-scale focus-ring flex min-h-[36px] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    复制
+                  </button>
+                </div>
+              </div>
               <textarea
                 readOnly
                 value={parsedText}
@@ -202,11 +238,30 @@ function App() {
             </article>
 
             <article className="flex min-h-0 flex-[3] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
-              <SectionHeader
-                icon={Calculator}
-                title="拆单结果"
-                action={{ label: '复制', onClick: handleCopySplit }}
-              />
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-gradient accent-glow text-white shadow-sm">
+                    <Calculator className="h-4 w-4" strokeWidth={2.5} />
+                  </div>
+                  <h2 className="text-sm font-semibold tracking-wide text-slate-800">拆单结果</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleManualSplit}
+                    className="press-scale focus-ring flex min-h-[36px] items-center gap-1.5 rounded-lg accent-gradient px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-emerald-500/15 transition hover:brightness-105"
+                  >
+                    <Calculator className="h-3.5 w-3.5" />
+                    拆单
+                  </button>
+                  <button
+                    onClick={handleCopySplit}
+                    className="press-scale focus-ring flex min-h-[36px] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    复制
+                  </button>
+                </div>
+              </div>
               <textarea
                 readOnly
                 value={splitText}
@@ -228,8 +283,24 @@ function App() {
                     id="groups"
                     type="number"
                     min={1}
-                    value={groups}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGroups(parseInt(e.target.value) || 1)}
+                    value={groupsInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const raw = e.target.value;
+                      setGroupsInput(raw);
+                      const n = parseInt(raw, 10);
+                      if (!Number.isNaN(n) && n >= 1) {
+                        setGroups(n);
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(groupsInput, 10);
+                      if (groupsInput.trim() === '' || Number.isNaN(n) || n < 1) {
+                        setGroupsInput(String(groups));
+                      } else {
+                        setGroups(n);
+                        setGroupsInput(String(n));
+                      }
+                    }}
                     className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
                   />
                 </div>
@@ -242,8 +313,54 @@ function App() {
                     id="minAmount"
                     type="number"
                     min={0}
-                    value={minAmount}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMinAmount(parseInt(e.target.value) || 0)}
+                    value={minAmountInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const raw = e.target.value;
+                      setMinAmountInput(raw);
+                      const n = parseInt(raw, 10);
+                      if (!Number.isNaN(n) && n >= 0) {
+                        setMinAmount(n);
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(minAmountInput, 10);
+                      if (minAmountInput.trim() === '' || Number.isNaN(n) || n < 0) {
+                        setMinAmountInput(String(minAmount));
+                      } else {
+                        setMinAmount(n);
+                        setMinAmountInput(String(n));
+                      }
+                    }}
+                    className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="minCodes" className="text-xs font-medium text-slate-700">
+                    每组最少号码
+                  </label>
+                  <input
+                    id="minCodes"
+                    type="number"
+                    min={1}
+                    value={minCodesInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const raw = e.target.value;
+                      setMinCodesInput(raw);
+                      const n = parseInt(raw, 10);
+                      if (!Number.isNaN(n) && n >= 1) {
+                        setMinCodes(n);
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(minCodesInput, 10);
+                      if (minCodesInput.trim() === '' || Number.isNaN(n) || n < 1) {
+                        setMinCodesInput(String(minCodes));
+                      } else {
+                        setMinCodes(n);
+                        setMinCodesInput(String(n));
+                      }
+                    }}
                     className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
                   />
                 </div>
@@ -286,13 +403,13 @@ function App() {
               </div>
             </article>
 
-            <article className="flex flex-1 flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
+            <article className="flex min-h-0 flex-1 flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <SectionHeader icon={Activity} title="运行日志" />
               <div
                 ref={containerRef}
                 role="log"
                 aria-live="polite"
-                className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs"
+                className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs"
               >
                 {logs.length === 0 ? (
                   <span className="text-slate-400">暂无日志</span>
