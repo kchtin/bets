@@ -126,9 +126,9 @@ function distributeBets(
     if (codesLeft.length > 0) {
       // 按你原定的比例规则计算取多少个
       function pickCountByRatio(n: number): number {
-        if (n > 25) return Math.max(1, Math.ceil(n * 0.3));
-        if (n > 15) return Math.max(1, Math.ceil(n * 0.8));
-        if (n > 5) return Math.max(1, Math.ceil(n * 0.5));
+        if (n > 25) return Math.max(1, Math.ceil(n * 0.7));
+        if (n > 10) return Math.max(1, Math.ceil(n * 0.8));
+        if (n > 5) return Math.max(1, Math.ceil(n * 0.9));
         return Math.max(1, Math.min(n, Math.floor(Math.random() * 3) + 1));
       }
 
