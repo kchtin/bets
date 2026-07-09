@@ -18,8 +18,6 @@ function App() {
   const [minAmountInput, setMinAmountInput] = useState(String(minAmount));
   const [minCodes, setMinCodes] = useState(1);
   const [minCodesInput, setMinCodesInput] = useState(String(minCodes));
-  const [maxKinds, setMaxKinds] = useState(4);
-  const [maxKindsInput, setMaxKindsInput] = useState('4');
   const [step, setStep] = useState<Step>(10);
 
   useEffect(() => {
@@ -29,10 +27,6 @@ function App() {
   useEffect(() => {
     setMinCodesInput(String(minCodes));
   }, [minCodes]);
-
-  useEffect(() => {
-    setMaxKindsInput(String(maxKinds));
-  }, [maxKinds]);
 
   useEffect(() => {
     setGroupsInput(String(groups));
@@ -62,13 +56,13 @@ function App() {
     }
   }, [append]);
 
-  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number, currentMinCodes: number, currentMaxKinds: number) => {
+  const doSplit = useCallback((currentBets: Bet[], currentGroups: number, currentMin: number, currentStep: number, currentMinCodes: number) => {
     if (currentBets.length === 0) {
       setSplitText('');
       return;
     }
     try {
-      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep, currentMinCodes, currentMaxKinds);
+      const lines = splitBets(currentBets, currentGroups, currentMin, currentStep, currentMinCodes);
       setSplitText(lines.join('\n'));
       append('已自动拆单', 'info');
     } catch (err) {
@@ -78,8 +72,8 @@ function App() {
   }, [append]);
 
   useEffect(() => {
-    doSplit(bets, groups, minAmount, step, minCodes, maxKinds);
-  }, [bets, groups, minAmount, step, minCodes, maxKinds, doSplit]);
+    doSplit(bets, groups, minAmount, step, minCodes);
+  }, [bets, groups, minAmount, step, minCodes, doSplit]);
 
   const handleInputChange = (text: string) => {
     setInput(text);
@@ -100,7 +94,7 @@ function App() {
   };
 
   const handleManualSplit = () => {
-    doSplit(bets, groups, minAmount, step, minCodes, maxKinds);
+    doSplit(bets, groups, minAmount, step, minCodes);
   };
 
   const handleCopyParsed = async () => {
@@ -365,38 +359,6 @@ function App() {
                       } else {
                         setMinCodes(n);
                         setMinCodesInput(String(n));
-                      }
-                    }}
-                    className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label htmlFor="maxKinds" className="text-xs font-medium text-slate-700">
-                    每组最多小项
-                  </label>
-                  <input
-                    id="maxKinds"
-                    type="number"
-                    min={0}
-                    value={maxKindsInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      const raw = e.target.value;
-                      setMaxKindsInput(raw);
-                      const n = parseInt(raw, 10);
-                      if (!Number.isNaN(n) && n >= 0) {
-                        setMaxKinds(n);
-                      }
-                    }}
-                    onBlur={() => {
-                      const n = parseInt(maxKindsInput, 10);
-                      if (maxKindsInput.trim() === '') {
-                        setMaxKinds(0);
-                      } else if (Number.isNaN(n) || n < 0) {
-                        setMaxKindsInput(String(maxKinds));
-                      } else {
-                        setMaxKinds(n);
-                        setMaxKindsInput(String(n));
                       }
                     }}
                     className="focus-ring h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 text-sm text-slate-800 focus:border-emerald-400/60 focus:bg-white focus:outline-none"

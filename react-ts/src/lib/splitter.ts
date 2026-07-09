@@ -6,32 +6,56 @@ interface SubBet {
   amount: number;
 }
 
-function splitAmount(total: number, k: number, step: number): number[] {
-  // 把 total 尽量平均拆成 k 份，每份是 step 的倍数
-  const base = Math.floor(total / k / step) * step;
-  const remainder = total - base * k;
-  const result = Array(k).fill(base);
-  let left = remainder;
-  for (let i = 0; i < k && left > 0; i++) {
-    const add = Math.min(left, step);
-    result[i] += add;
-    left -= add;
-  }
-  return result;
-}
-
-function computeParts(total: number, groups: number, minAmount: number, step: number): number {
-  // 默认把每个 code 拆成 2 份（如果组数允许），并保证每份不小于 minAmount 且不小于 step
-  let k = Math.min(groups, 2);
-  while (k > 1) {
-    const base = Math.floor(total / k / step) * step;
-    if (base < minAmount) {
-      k--;
-    } else {
-      break;
+/** 找出当前剩余注单中仍然完整的生肖（该生肖全部号码都还有余额） */
+function getCompleteZodiacs(remaining: Map<string, number>): string[] {
+  const complete: string[] = [];
+  for (const [name, codes] of Object.entries(ZODIAC_MAP_2026)) {
+    if (codes.every((c) => (remaining.get(c) ?? 0) > 0)) {
+      complete.push(name);
     }
   }
-  return k;
+  return complete.sort(() => Math.random() - 0.5);
+}
+
+/** 从 [minAmount, remaining] 范围内随机取一个 step 对齐的整数，偏向取大额 */
+function randomStepAmount(remaining: number, minAmount: number, step: number): number {
+  if (remaining <= minAmount) return remaining;
+  const maxSteps = Math.floor((remaining - minAmount) / step);
+  const steps = Math.floor(Math.random() * (maxSteps + 1));
+  return remaining - steps * step;
+}
+
+function assignCodesToGroup(
+  groupIndex: number,
+  codes: string[],
+  remaining: Map<string, number>,
+  minAmount: number,
+  step: number,
+  clearAll: boolean,
+  forcedAmount?: number
+): SubBet[] {
+  const validCodes = codes.filter((c) => (remaining.get(c) ?? 0) > 0);
+  if (validCodes.length === 0) return [];
+  const minRemaining = Math.min(...validCodes.map((c) => remaining.get(c) ?? 0));
+  const amount = forcedAmount ?? randomStepAmount(minRemaining, minAmount, step);
+  const assigned: SubBet[] = [];
+  for (const code of validCodes) {
+    const left = remaining.get(code) ?? 0;
+    const part1 = Math.min(amount, left);
+    assigned.push({ groupIndex, code, amount: part1 });
+    const rest = left - part1;
+    if (rest > 0) {
+      if (clearAll) {
+        assigned.push({ groupIndex, code, amount: rest });
+        remaining.delete(code);
+      } else {
+        remaining.set(code, rest);
+      }
+    } else {
+      remaining.delete(code);
+    }
+  }
+  return assigned;
 }
 
 function distributeBets(
@@ -39,202 +63,144 @@ function distributeBets(
   groups: number,
   minAmount: number,
   step: number
-): SubBet[][] {
+): { groupBets: SubBet[][]; groupZodiacs: (string | null)[] } {
   const groupBets: SubBet[][] = Array.from({ length: groups }, () => []);
-  const groupShareCounts: number[] = Array(groups).fill(0);
-  const merged = new Map<string, number>();
+  const groupZodiacs: (string | null)[] = Array.from({ length: groups }, () => null);
+
+  // 聚合 code -> 剩余金额
+  const remaining = new Map<string, number>();
   for (const b of bets) {
-    merged.set(b.code, (merged.get(b.code) ?? 0) + b.amount);
+    remaining.set(b.code, (remaining.get(b.code) ?? 0) + b.amount);
   }
 
-  // 金额不足 minAmount 的 code 整体放入当前小项最少的一组
-  for (const [code, amount] of merged.entries()) {
-    if (amount > 0 && amount < minAmount) {
-      const idx = groupShareCounts.indexOf(Math.min(...groupShareCounts));
-      groupBets[idx].push({ groupIndex: idx, code, amount });
-      groupShareCounts[idx]++;
-      merged.set(code, 0);
+  // 预先为前 groups-1 组各分配一个不同的完整生肖
+  const completeZodiacs = getCompleteZodiacs(remaining);
+  const assignedZodiac: (string | null)[] = Array.from({ length: groups }, () => null);
+  for (let i = 0; i < groups - 1 && i < completeZodiacs.length; i++) {
+    assignedZodiac[i] = completeZodiacs[i];
+  }
+
+  // 收集已分配生肖的号码，普通号码阶段不再碰它们，确保每组生肖独立成段
+  const protectedCodes = new Set<string>();
+
+  // 第一轮：先把生肖分配到前 groups-1 组
+  for (let i = 0; i < groups - 1; i++) {
+    const zodiacName = assignedZodiac[i];
+    if (!zodiacName) continue;
+    groupZodiacs[i] = zodiacName;
+    const codes = ZODIAC_MAP_2026[zodiacName];
+    for (const code of codes) protectedCodes.add(code);
+    const minRemaining = Math.min(...codes.map((c) => remaining.get(c) ?? 0));
+    if (minRemaining <= 0) continue;
+    const amount = randomStepAmount(minRemaining, minAmount, step);
+    for (const code of codes) {
+      groupBets[i].push({ groupIndex: i, code, amount });
+      const left = (remaining.get(code) ?? 0) - amount;
+      if (left <= 0) remaining.delete(code);
+      else remaining.set(code, left);
     }
   }
 
-  // 构建所有待分配的小项（每个 code 拆成 k 份）
-  const shares: { code: string; amount: number }[] = [];
-  for (const [code, total] of merged.entries()) {
-    if (total <= 0) continue;
-    const k = computeParts(total, groups, minAmount, step);
-    for (const amount of splitAmount(total, k, step)) {
-      shares.push({ code, amount });
+  // 第二轮：分配普通号码（避开生肖号码）
+  function getShuffledRegularCodes(): string[] {
+    return [...remaining.keys()]
+      .filter((c) => (remaining.get(c) ?? 0) > 0 && !protectedCodes.has(c))
+      .sort(() => Math.random() - 0.5);
+  }
+
+  for (let i = 0; i < groups; i++) {
+    const isLast = i === groups - 1;
+    const codesLeft = getShuffledRegularCodes();
+
+    if (isLast) {
+      // 最后一组：兜底剩余所有号码（包括生肖剩余）
+      for (const [code, amount] of remaining) {
+        if (amount <= 0) continue;
+        groupBets[i].push({ groupIndex: i, code, amount });
+      }
+      remaining.clear();
+      continue;
+    }
+
+    // 普通号码：按剩余数量比例取一批号码，再拆成两档金额，确保输出 2 段
+    if (codesLeft.length > 0) {
+      // 按你原定的比例规则计算取多少个
+      function pickCountByRatio(n: number): number {
+        if (n > 25) return Math.max(1, Math.ceil(n * 0.3));
+        if (n > 15) return Math.max(1, Math.ceil(n * 0.8));
+        if (n > 5) return Math.max(1, Math.ceil(n * 0.5));
+        return Math.max(1, Math.min(n, Math.floor(Math.random() * 3) + 1));
+      }
+
+      const pickCount = Math.min(codesLeft.length, pickCountByRatio(codesLeft.length));
+      // 优先取剩余金额较大的号码，前一半给高档、后一半给低档
+      const picked = codesLeft
+        .slice()
+        .sort((a, b) => (remaining.get(b) ?? 0) - (remaining.get(a) ?? 0))
+        .slice(0, pickCount);
+
+      if (picked.length > 0) {
+        const half = Math.max(1, Math.ceil(picked.length / 2));
+        const batch1 = picked.slice(0, half);
+        const batch2 = picked.slice(half);
+
+        const minRemaining1 = Math.min(
+          ...batch1.map((c) => remaining.get(c) ?? 0)
+        );
+        const minRemaining2 = Math.min(
+          ...batch2.map((c) => remaining.get(c) ?? 0)
+        );
+
+        // 高档金额随机但不低于 20；低档固定 10，确保两段不合并
+        let amount1 = randomStepAmount(minRemaining1, minAmount, step);
+        if (minRemaining1 >= minAmount + step) {
+          amount1 = Math.max(amount1, minAmount + step);
+        }
+        let amount2 = minAmount;
+        if (amount2 === amount1 && minRemaining2 >= minAmount + step) {
+          amount2 = minAmount + step;
+        }
+
+        groupBets[i].push(
+          ...assignCodesToGroup(i, batch1, remaining, minAmount, step, false, amount1)
+        );
+        if (batch2.length > 0) {
+          groupBets[i].push(
+            ...assignCodesToGroup(i, batch2, remaining, minAmount, step, false, amount2)
+          );
+        }
+      }
     }
   }
 
-  // 随机打乱，让不同 code 的组合更自然
-  shares.sort(() => Math.random() - 0.5);
-
-  for (const share of shares) {
-    const { code, amount } = share;
-
-    // 优先放到还没有此 code 的组，避免同一组内同 code 多次出现
-    const unusedGroups: number[] = [];
-    for (let i = 0; i < groups; i++) {
-      if (!groupBets[i].some((b) => b.code === code)) unusedGroups.push(i);
-    }
-
-    let candidates = unusedGroups;
-    if (candidates.length === 0) {
-      const codeCounts = groupBets.map((g, i) => ({
-        i,
-        count: g.filter((b) => b.code === code).length,
-      }));
-      const minCount = Math.min(...codeCounts.map((c) => c.count));
-      candidates = codeCounts.filter((c) => c.count === minCount).map((c) => c.i);
-    }
-
-    // 在候选组里，优先放到当前小项最少的组，保证各组份数尽量平均
-    const groupIndex = candidates.reduce((best, i) =>
-      groupShareCounts[i] < groupShareCounts[best] ? i : best, candidates[0]);
-
-    groupBets[groupIndex].push({ groupIndex, code, amount });
-    groupShareCounts[groupIndex]++;
-  }
-
-  return groupBets;
+  return { groupBets, groupZodiacs };
 }
 
-function getGroupCodeSet(group: SubBet[]): Set<string> {
-  return new Set(group.map((b) => b.code));
-}
-
-function balanceGroups(groupBets: SubBet[][], minCodes: number): SubBet[][] {
-  if (minCodes <= 1) return groupBets.map((g) => [...g]);
-
-  const balanced = groupBets.map((g) => [...g]);
-
-  while (true) {
-    const counts = balanced.map((g) => getGroupCodeSet(g).size);
-    const needyIdx = counts.findIndex((c) => c < minCodes);
-    if (needyIdx === -1) break;
-
-    const targetCodes = getGroupCodeSet(balanced[needyIdx]);
-    const sourceCandidates = balanced
-      .map((_, idx) => ({ idx, count: counts[idx] }))
-      .filter(({ idx, count }) => idx !== needyIdx && count > minCodes)
-      .sort((a, b) => b.count - a.count);
-
-    let moved = false;
-    for (const source of sourceCandidates) {
-      const sourceCodes = getGroupCodeSet(balanced[source.idx]);
-      const movableCode = [...sourceCodes].find((c) => !targetCodes.has(c));
-      if (!movableCode) continue;
-
-      const sourceGroup = balanced[source.idx];
-      const betIndex = sourceGroup.findIndex((b) => b.code === movableCode);
-      if (betIndex === -1) continue;
-
-      const [bet] = sourceGroup.splice(betIndex, 1);
-      balanced[needyIdx].push({ ...bet, groupIndex: needyIdx });
-      moved = true;
-      break;
-    }
-
-    if (!moved) break;
-  }
-
-  return balanced;
-}
-
-function getKindCount(group: SubBet[]): number {
-  return new Set(group.map((b) => b.amount)).size;
-}
-
-function constrainKinds(
-  groupBets: SubBet[][],
-  maxKinds: number,
-  minCodes: number
-): SubBet[][] {
-  if (maxKinds <= 0) return groupBets.map((g) => [...g]);
-
-  const constrained = groupBets.map((g) => [...g]);
-
-  while (true) {
-    const overIdx = constrained.findIndex((g) => getKindCount(g) > maxKinds);
-    if (overIdx === -1) break;
-
-    const overGroup = constrained[overIdx];
-    let moved = false;
-
-    for (let i = 0; i < overGroup.length; i++) {
-      const bet = overGroup[i];
-      if (overGroup.length - 1 < minCodes) continue;
-
-      for (let targetIdx = 0; targetIdx < constrained.length; targetIdx++) {
-        if (targetIdx === overIdx) continue;
-        const target = constrained[targetIdx];
-
-        const existing = target.find((b) => b.code === bet.code);
+/** 合并同组内完全相同的 code:amount，迭代直到无冲突 */
+function mergeDuplicateCodes(groupBets: SubBet[][]): SubBet[][] {
+  return groupBets.map((group) => {
+    let list = group.map((b) => ({ ...b }));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const map = new Map<string, SubBet>();
+      const next: SubBet[] = [];
+      for (const b of list) {
+        const key = `${b.code}:${b.amount}`;
+        const existing = map.get(key);
         if (existing) {
-          const newAmount = existing.amount + bet.amount;
-          const newKinds = new Set(
-            target.map((b) => (b.code === bet.code ? newAmount : b.amount))
-          ).size;
-          if (newKinds > maxKinds) continue;
-
-          overGroup.splice(i, 1);
-          existing.amount = newAmount;
-          moved = true;
-          break;
+          existing.amount += b.amount;
+          changed = true;
         } else {
-          const newKinds = new Set([...target.map((b) => b.amount), bet.amount]).size;
-          if (newKinds > maxKinds) continue;
-
-          overGroup.splice(i, 1);
-          target.push({ ...bet, groupIndex: targetIdx });
-          moved = true;
-          break;
+          const copy = { ...b };
+          map.set(key, copy);
+          next.push(copy);
         }
       }
-      if (moved) break;
+      list = next;
     }
-
-    if (!moved) {
-      // 金额重分配：把某个 code 的金额改为组内已有的另一个金额，
-      // 差额移到另一个已有该 code 的组，从而减少本组金额种类数。
-      for (let i = 0; i < overGroup.length; i++) {
-        const bet = overGroup[i];
-        const otherAmounts = [
-          ...new Set(overGroup.filter((b) => b !== bet).map((b) => b.amount)),
-        ];
-
-        for (const targetAmount of otherAmounts) {
-          if (bet.amount <= targetAmount) continue;
-          const diff = bet.amount - targetAmount;
-
-          for (let targetIdx = 0; targetIdx < constrained.length; targetIdx++) {
-            if (targetIdx === overIdx) continue;
-            const target = constrained[targetIdx];
-            const existing = target.find((b) => b.code === bet.code);
-            if (!existing) continue;
-
-            const newAmount = existing.amount + diff;
-            const newKinds = new Set(
-              target.map((b) => (b.code === bet.code ? newAmount : b.amount))
-            ).size;
-            if (newKinds > maxKinds) continue;
-
-            existing.amount = newAmount;
-            bet.amount = targetAmount;
-            moved = true;
-            break;
-          }
-          if (moved) break;
-        }
-        if (moved) break;
-      }
-    }
-
-    if (!moved) break;
-  }
-
-  return constrained;
+    return list;
+  });
 }
 
 export function splitBets(
@@ -242,8 +208,7 @@ export function splitBets(
   groups: number,
   minAmount: number,
   step = 10,
-  minCodes = 1,
-  maxKinds = 0
+  _minCodes = 1
 ): string[] {
   if (!Array.isArray(bets) || bets.length === 0) {
     throw new Error('拆单失败：注单为空');
@@ -257,27 +222,15 @@ export function splitBets(
   if (!Number.isInteger(step) || step <= 0) {
     throw new Error('拆单失败：倍数步长必须为正整数');
   }
-  if (!Number.isInteger(minCodes) || minCodes < 1) {
-    throw new Error('拆单失败：每组最少号码数量必须为正整数');
-  }
-  if (!Number.isInteger(maxKinds) || maxKinds < 0) {
-    throw new Error('拆单失败：每组最多小项数必须为非负整数');
-  }
 
-  const groupBets = distributeBets(bets, groups, minAmount, step);
-  const balanced = balanceGroups(groupBets, minCodes);
-  const constrained = constrainKinds(balanced, maxKinds, minCodes);
+  const { groupBets, groupZodiacs } = distributeBets(bets, groups, minAmount, step);
+  const merged = mergeDuplicateCodes(groupBets);
 
-  return constrained
+  return merged
     .filter((g) => g.length > 0)
-    .map((g) => {
-      const isZodiacName = (code: string) => code in ZODIAC_MAP_2026;
-      const sorted = g.sort((a, b) => {
-        const az = isZodiacName(a.code) ? 0 : 1;
-        const bz = isZodiacName(b.code) ? 0 : 1;
-        if (az !== bz) return az - bz;
-        return a.code.localeCompare(b.code);
-      });
+    .map((g, idx) => {
+      const primaryZodiac = groupZodiacs[idx];
+      const sorted = g.sort((a, b) => a.code.localeCompare(b.code));
       const amountMap = new Map<number, string[]>();
       for (const b of sorted) {
         const list = amountMap.get(b.amount) ?? [];
@@ -288,12 +241,14 @@ export function splitBets(
       const parts: string[] = [];
       for (const [amount, codes] of [...amountMap.entries()].sort((a, b) => a[0] - b[0])) {
         const remaining = [...codes];
-        const zodiacNames: string[] = [];
+        let zodiacName: string | null = null;
 
-        for (const [name, zodiacCodes] of Object.entries(ZODIAC_MAP_2026)) {
+        // 只合并该组预先分配的主生肖，避免普通号码凑出额外生肖段
+        if (primaryZodiac) {
+          const zodiacCodes = ZODIAC_MAP_2026[primaryZodiac];
           const set = new Set(remaining);
           if (zodiacCodes.every((c) => set.has(c))) {
-            zodiacNames.push(name);
+            zodiacName = primaryZodiac;
             for (const c of zodiacCodes) {
               const idx = remaining.indexOf(c);
               if (idx !== -1) remaining.splice(idx, 1);
@@ -302,12 +257,13 @@ export function splitBets(
         }
 
         const partsForAmount: string[] = [];
-        const allCodes = [
-          ...zodiacNames,
-          ...remaining.sort((a, b) => a.localeCompare(b)),
-        ];
-        if (allCodes.length > 0) {
-          partsForAmount.push(`${allCodes.join('-')}各${amount}`);
+        if (zodiacName) {
+          partsForAmount.push(`${zodiacName}各${amount}`);
+        }
+        if (remaining.length > 0) {
+          partsForAmount.push(
+            `${remaining.sort((a, b) => a.localeCompare(b)).join('-')}各${amount}`
+          );
         }
         parts.push(...partsForAmount);
       }
