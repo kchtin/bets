@@ -18,7 +18,13 @@ cd /opt/sixhe
 
 echo "==> 同步 Nginx 配置"
 cp nginx/sixhe.conf /etc/nginx/sites-enabled/sixhe.conf
+# 禁用可能冲突的默认站点，避免重复监听 80
+rm -f /etc/nginx/sites-enabled/default
 nginx -t
+
+echo "==> 确保 Nginx 处于运行状态"
+systemctl start nginx || true
+systemctl reload-or-restart nginx
 
 echo "==> 安装 Certbot（如尚未安装）"
 if ! command -v certbot &>/dev/null; then
@@ -45,7 +51,7 @@ if ! crontab -l 2>/dev/null | grep -qF "duckdns/duckdns.sh"; then
   (crontab -l 2>/dev/null || true; echo "*/5 * * * * /opt/sixhe/duckdns/duckdns.sh >/dev/null 2>&1") | crontab -
 fi
 
-echo "==> 重载 Nginx"
+echo "==> 最终重载 Nginx"
 systemctl reload nginx
 
 echo "[$(date)] 部署完成"
