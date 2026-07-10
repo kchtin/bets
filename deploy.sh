@@ -67,11 +67,11 @@ if ! crontab -l 2>/dev/null | grep -qF "duckdns/duckdns.sh"; then
   (crontab -l 2>/dev/null || true; echo "*/5 * * * * /opt/sixhe/duckdns/duckdns.sh >/dev/null 2>&1") | crontab -
 fi
 
+echo "==> 重启 webhook 服务以加载最新 webhook.js"
+systemctl restart sixhe-webhook || systemctl restart webhook || true
+
 echo "==> 最终重载 Nginx"
 nginx -t
 systemctl reload nginx
-
-# 把日志复制到 dist，方便通过 HTTP 查看部署情况
-cp "$LOG_FILE" /opt/sixhe/react-ts/dist/deploy.log
 
 echo "[$(date)] 部署完成"

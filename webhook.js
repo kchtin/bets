@@ -1,10 +1,13 @@
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { spawn } = require('child_process');
 
 const PORT = process.env.PORT || 9000;
 const SECRET = process.env.WEBHOOK_SECRET || 'sixhe-webhook-secret';
 const DEPLOY_SCRIPT = process.env.DEPLOY_SCRIPT || '/opt/sixhe/deploy.sh';
+const DEPLOY_LOG = process.env.DEPLOY_LOG || '/opt/sixhe/deploy.log';
 
 function verifySignature(body, signature) {
   if (!signature) return false;
@@ -17,7 +20,24 @@ function verifySignature(body, signature) {
   }
 }
 
+function readDeployLog() {
+  try {
+    const log = fs.readFileSync(DEPLOY_LOG, 'utf8');
+    const lines = log.split('\n');
+    return lines.slice(-200).join('\n');
+  } catch (err) {
+    return `无法读取日志: ${err.message}`;
+  }
+}
+
 const server = http.createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/deploy-log') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end(readDeployLog());
+    return;
+  }
+
   if (req.method !== 'POST' || req.url !== '/webhook') {
     res.statusCode = 404;
     res.end('not found');
