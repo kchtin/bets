@@ -398,26 +398,12 @@ function getMovableSegments(group: SubBet[]): { amount: number; codes: string[] 
     .map(([amount, codes]) => ({ amount, codes }));
 }
 
-export function splitBets(
+function attemptSplit(
   bets: Bet[],
   groups: number,
   minAmount: number,
-  step = 10,
-  _minCodes = 1
+  step: number
 ): string[] {
-  if (!Array.isArray(bets) || bets.length === 0) {
-    throw new Error('拆单失败：注单为空');
-  }
-  if (!Number.isInteger(groups) || groups <= 0) {
-    throw new Error('拆单失败：组数必须为正整数');
-  }
-  if (!Number.isInteger(minAmount) || minAmount < 0) {
-    throw new Error('拆单失败：最低金额必须为非负整数');
-  }
-  if (!Number.isInteger(step) || step <= 0) {
-    throw new Error('拆单失败：倍数步长必须为正整数');
-  }
-
   const { groupBets, groupZodiacs } = distributeBets(bets, groups, minAmount, step);
   const merged = mergeDuplicateCodes(groupBets);
 
@@ -542,47 +528,101 @@ export function splitBets(
     }
   }
 
-  return merged
-    .map((g, idx) => {
-      const groupZodiacList = groupZodiacs[idx];
-      const sorted = g.sort((a, b) => a.code.localeCompare(b.code));
-      const amountMap = new Map<number, string[]>();
-      for (const b of sorted) {
-        const list = amountMap.get(b.amount) ?? [];
-        list.push(b.code);
-        amountMap.set(b.amount, list);
-      }
+  return merged.map((g, idx) => {
+    const groupZodiacList = groupZodiacs[idx];
+    const sorted = g.sort((a, b) => a.code.localeCompare(b.code));
+    const amountMap = new Map<number, string[]>();
+    for (const b of sorted) {
+      const list = amountMap.get(b.amount) ?? [];
+      list.push(b.code);
+      amountMap.set(b.amount, list);
+    }
 
-      const parts: string[] = [];
-      for (const [amount, codes] of [...amountMap.entries()].sort((a, b) => a[0] - b[0])) {
-        const remaining = [...codes];
-        const partsForAmount: string[] = [];
+    const parts: string[] = [];
+    for (const [amount, codes] of [...amountMap.entries()].sort((a, b) => a[0] - b[0])) {
+      const remaining = [...codes];
+      const partsForAmount: string[] = [];
 
-        // 合并该组预先分配的所有生肖，同金额多个生肖合并成一段
-        const matchedZodiacs: string[] = [];
-        for (const zodiacName of groupZodiacList) {
-          const zodiacCodes = ZODIAC_MAP_2026[zodiacName];
-          const set = new Set(remaining);
-          if (zodiacCodes.every((c) => set.has(c))) {
-            matchedZodiacs.push(zodiacName);
-            for (const c of zodiacCodes) {
-              const rIdx = remaining.indexOf(c);
-              if (rIdx !== -1) remaining.splice(rIdx, 1);
-            }
+      // 合并该组预先分配的所有生肖，同金额多个生肖合并成一段
+      const matchedZodiacs: string[] = [];
+      for (const zodiacName of groupZodiacList) {
+        const zodiacCodes = ZODIAC_MAP_2026[zodiacName];
+        const set = new Set(remaining);
+        if (zodiacCodes.every((c) => set.has(c))) {
+          matchedZodiacs.push(zodiacName);
+          for (const c of zodiacCodes) {
+            const rIdx = remaining.indexOf(c);
+            if (rIdx !== -1) remaining.splice(rIdx, 1);
           }
         }
-        if (matchedZodiacs.length > 0) {
-          partsForAmount.push(`${matchedZodiacs.join('')}各${amount}`);
-        }
-
-        if (remaining.length > 0) {
-          partsForAmount.push(
-            `${remaining.sort((a, b) => a.localeCompare(b)).join('-')}各${amount}`
-          );
-        }
-        parts.push(...partsForAmount);
+      }
+      if (matchedZodiacs.length > 0) {
+        partsForAmount.push(`${matchedZodiacs.join('')}各${amount}`);
       }
 
-      return parts.join('， ');
-    });
+      if (remaining.length > 0) {
+        partsForAmount.push(
+          `${remaining.sort((a, b) => a.localeCompare(b)).join('-')}各${amount}`
+        );
+      }
+      parts.push(...partsForAmount);
+    }
+
+    // 每组末尾随机拼接一个口语化后缀，增加显示多样性
+    if (parts.length > 0) {
+      const suffixAmount = Math.floor(Math.random() * 20 + 1) * 10;
+      const suffixes = [
+        `各${suffixAmount}米`,
+        `各号${suffixAmount}`,
+        `各位${suffixAmount}`,
+        `各${suffixAmount}元`,
+        `各${suffixAmount}块`,
+        `各${suffixAmount}闷`,
+      ];
+      parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+    }
+
+    return parts.join('， ');
+  });
+}
+
+export function splitBets(
+  bets: Bet[],
+  groups: number,
+  minAmount: number,
+  step = 10,
+  _minCodes = 1
+): string[] {
+  if (!Array.isArray(bets) || bets.length === 0) {
+    throw new Error('拆单失败：注单为空');
+  }
+  if (!Number.isInteger(groups) || groups <= 0) {
+    throw new Error('拆单失败：组数必须为正整数');
+  }
+  if (!Number.isInteger(minAmount) || minAmount < 0) {
+    throw new Error('拆单失败：最低金额必须为非负整数');
+  }
+  if (!Number.isInteger(step) || step <= 0) {
+    throw new Error('拆单失败：倍数步长必须为正整数');
+  }
+
+  let bestResult: string[] | null = null;
+  let bestG5Segments = Infinity;
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const result = attemptSplit(bets, groups, minAmount, step);
+    const g5Line = result[groups - 1] ?? '';
+    const g5Segments = g5Line ? g5Line.split('， ').length : 0;
+
+    if (g5Segments <= 3) {
+      return result;
+    }
+
+    if (g5Segments < bestG5Segments) {
+      bestG5Segments = g5Segments;
+      bestResult = result;
+    }
+  }
+
+  return bestResult ?? [];
 }

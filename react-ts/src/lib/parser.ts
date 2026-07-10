@@ -51,7 +51,7 @@ function parseSegment(segment: string): string[] {
     throw new Error('解析失败：号码为空');
   }
 
-  const rawCodes = codesPart.split(/[,，、/.]+/).filter(Boolean);
+  const rawCodes = codesPart.split(/[,，、/.\-。]+/).filter(Boolean);
   if (rawCodes.length === 0) {
     throw new Error('解析失败：未识别号码');
   }
