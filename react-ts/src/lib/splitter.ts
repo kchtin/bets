@@ -568,18 +568,24 @@ function attemptSplit(
       parts.push(...partsForAmount);
     }
 
-    // 每组末尾随机拼接一个口语化后缀，增加显示多样性
+    // 每组随机选择一个口语化“单位”，本组每一小段都带同一个单位
     if (parts.length > 0) {
-      const suffixAmount = Math.floor(Math.random() * 20 + 1) * 10;
-      const suffixes = [
-        `各${suffixAmount}米`,
-        `各号${suffixAmount}`,
-        `各位${suffixAmount}`,
-        `各${suffixAmount}元`,
-        `各${suffixAmount}块`,
-        `各${suffixAmount}闷`,
+      const unitFormatters = [
+        (a: number) => `各${a}米`,
+        (a: number) => `各号${a}`,
+        (a: number) => `各位${a}`,
+        (a: number) => `各${a}元`,
+        (a: number) => `各${a}块`,
+        (a: number) => `各${a}闷`,
       ];
-      parts.push(suffixes[Math.floor(Math.random() * suffixes.length)]);
+      const formatUnit = unitFormatters[Math.floor(Math.random() * unitFormatters.length)];
+      for (let i = 0; i < parts.length; i++) {
+        const amountMatch = parts[i].match(/各(\d+)$/);
+        if (amountMatch) {
+          const amount = parseInt(amountMatch[1], 10);
+          parts[i] = parts[i].slice(0, -amountMatch[0].length) + formatUnit(amount);
+        }
+      }
     }
 
     return parts.join('， ');
