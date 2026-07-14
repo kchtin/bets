@@ -3,6 +3,7 @@ import { parseBetText, parseStandardBets, formatParsedBets, type Bet } from './l
 import { splitBets } from './lib/splitter';
 import { useClipboard } from './hooks/useClipboard';
 import { useLog } from './hooks/useLog';
+import { XiaoShuzi } from './components/XiaoShuzi';
 import { ClipboardPaste, Copy, Calculator, Trash2, Activity } from 'lucide-react';
 
 type Step = 5 | 10 | 15 | 20;
@@ -19,6 +20,7 @@ function App() {
   const [minCodes, setMinCodes] = useState(1);
   const [minCodesInput, setMinCodesInput] = useState(String(minCodes));
   const [step, setStep] = useState<Step>(10);
+  const [page, setPage] = useState<'sixhe' | 'xiaoshuzi'>('sixhe');
 
   useEffect(() => {
     setMinAmountInput(String(minAmount));
@@ -157,17 +159,45 @@ function App() {
       </div>
 
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
-        <header className="mb-6 flex shrink-0 items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md press-scale focus-ring">
-            <img src="/logo.png" alt="sixhe" className="h-full w-full object-cover" />
+        <header className="mb-6 flex shrink-0 items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md press-scale focus-ring">
+              <img src="/logo.png" alt="sixhe" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-gradient md:text-3xl">sixhe</h1>
+              <p className="text-xs text-slate-500">智能注单解析与拆单工具</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gradient md:text-3xl">sixhe</h1>
-            <p className="text-xs text-slate-500">智能注单解析与拆单工具</p>
-          </div>
+
+          <nav className="flex items-center rounded-xl border border-slate-200 bg-white/70 p-1 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => setPage('sixhe')}
+              className={`press-scale focus-ring rounded-lg px-3 py-2 text-sm font-semibold transition md:px-4 ${
+                page === 'sixhe'
+                  ? 'accent-gradient text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+              }`}
+            >
+              拆单
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage('xiaoshuzi')}
+              className={`press-scale focus-ring rounded-lg px-3 py-2 text-sm font-semibold transition md:px-4 ${
+                page === 'xiaoshuzi'
+                  ? 'accent-gradient text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+              }`}
+            >
+              小数字
+            </button>
+          </nav>
         </header>
 
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-12">
+        {page === 'sixhe' ? (
+          <main className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-12">
           <section className="flex min-h-0 flex-col gap-5 lg:col-span-8">
             <article className="ambient-light flex min-h-0 flex-[1.2] flex-col rounded-2xl glass-strong p-4 card-shadow md:p-5">
               <div className="mb-3 flex items-center justify-between">
@@ -424,7 +454,10 @@ function App() {
               </div>
             </article>
           </aside>
-        </main>
+          </main>
+        ) : (
+          <XiaoShuzi />
+        )}
       </div>
     </div>
   );
