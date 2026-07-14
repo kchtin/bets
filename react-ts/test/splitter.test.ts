@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseBetText, parseStandardBets } from '../src/lib/parser';
-import { splitBets } from '../src/lib/splitter';
+import { parseBetText, parseStandardBets } from '../src/features/sixhe/lib/parser';
+import { splitBets } from '../src/features/sixhe/lib/splitter';
 
 function parseSegment(item: string): { codePart: string; amount: number } | null {
   // 处理 "各号X" / "各位X"

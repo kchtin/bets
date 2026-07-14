@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBetText, parseStandardBets, formatParsedBets, ZODIAC_MAP_2026 } from '../src/lib/parser';
+import { parseBetText, parseStandardBets, formatParsedBets, ZODIAC_MAP_2026 } from '../src/features/sixhe/lib/parser';
 
 describe('parseBetText', () => {
   it('解析数字号码 * 连接符', () => {

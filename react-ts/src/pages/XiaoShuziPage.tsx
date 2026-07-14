@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, Eraser } from 'lucide-react';
-import { useClipboard } from '../hooks/useClipboard';
+import { useClipboard } from '@/hooks/useClipboard';
 
-export function XiaoShuzi() {
+export function XiaoShuziPage() {
   const [removeInput, setRemoveInput] = useState('');
   const [source, setSource] = useState('');
   const [copied, setCopied] = useState(false);
