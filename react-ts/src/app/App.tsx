@@ -1,12 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SixhePage } from '@/pages/SixhePage';
 import { XiaoShuziPage } from '@/pages/XiaoShuziPage';
+import { WelcomePage } from '@/pages/WelcomePage';
 import logoUrl from '@/assets/logo.png';
 
-type Page = 'sixhe' | 'xiaoshuzi';
+type Page = 'sixhe' | 'xiaoshuzi' | null;
+
+function pathToPage(path: string): Page {
+  const normalized = path.replace(/\/$/, '') || '/';
+  if (normalized === '/chaidan') return 'sixhe';
+  if (normalized === '/shuzi') return 'xiaoshuzi';
+  return null;
+}
 
 function App() {
-  const [page, setPage] = useState<Page>('sixhe');
+  const [page, setPage] = useState<Page>(() => pathToPage(window.location.pathname));
+
+  const navigate = useCallback((path: '/chaidan' | '/shuzi') => {
+    window.history.pushState({}, '', path);
+    setPage(pathToPage(path));
+  }, []);
+
+  const goHome = useCallback(() => {
+    window.history.pushState({}, '', '/');
+    setPage(null);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPage(pathToPage(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   return (
     <div className="relative flex h-screen flex-col overflow-x-hidden p-4 md:p-5 lg:p-6">
@@ -17,20 +43,24 @@ function App() {
 
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
         <header className="mb-6 flex shrink-0 items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md press-scale focus-ring">
+          <button
+            type="button"
+            onClick={goHome}
+            className="flex items-center gap-4 press-scale focus-ring rounded-2xl"
+          >
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-md">
               <img src={logoUrl} alt="sixhe" className="h-full w-full object-cover" />
             </div>
-            <div>
+            <div className="text-left">
               <h1 className="text-2xl font-bold tracking-tight text-gradient md:text-3xl">sixhe</h1>
               <p className="text-xs text-slate-500">智能注单解析与拆单工具</p>
             </div>
-          </div>
+          </button>
 
           <nav className="flex items-center rounded-xl border border-slate-200 bg-white/70 p-1 backdrop-blur-sm">
             <button
               type="button"
-              onClick={() => setPage('sixhe')}
+              onClick={() => navigate('/chaidan')}
               className={`press-scale focus-ring rounded-lg px-3 py-2 text-sm font-semibold transition md:px-4 ${
                 page === 'sixhe'
                   ? 'accent-gradient text-white shadow-sm'
@@ -41,7 +71,7 @@ function App() {
             </button>
             <button
               type="button"
-              onClick={() => setPage('xiaoshuzi')}
+              onClick={() => navigate('/shuzi')}
               className={`press-scale focus-ring rounded-lg px-3 py-2 text-sm font-semibold transition md:px-4 ${
                 page === 'xiaoshuzi'
                   ? 'accent-gradient text-white shadow-sm'
@@ -53,7 +83,7 @@ function App() {
           </nav>
         </header>
 
-        {page === 'sixhe' ? <SixhePage /> : <XiaoShuziPage />}
+        {page === 'sixhe' ? <SixhePage /> : page === 'xiaoshuzi' ? <XiaoShuziPage /> : <WelcomePage onNavigate={navigate} />}
       </div>
     </div>
   );

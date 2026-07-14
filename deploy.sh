@@ -13,6 +13,9 @@ CONF_DST="/etc/nginx/sites-enabled/sixhe.conf"
 echo "[$(date)] 开始部署..."
 cd /opt/sixhe
 
+echo "==> 丢弃 npm install 在服务器上产生的 package-lock 本地改动"
+git checkout -- react-ts/package-lock.json || true
+
 echo "==> git pull"
 git pull origin main
 
